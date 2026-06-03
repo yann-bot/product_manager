@@ -1,0 +1,40 @@
+{
+  "name": "product_system_manager",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node-cron": "^3.0.11",
+    "@types/pg": "^8.20.0",
+    "@types/react": "^19.2.15",
+    "@types/react-dom": "^19.2.3",
+    "drizzle-kit": "^0.31.10",
+    "tsx": "^4.22.3"
+  },
+  "scripts": {
+    "dev": "bun dev",
+    "build": "bun build",
+    "watch": "tsx watch src/main.ts",
+    "db:up": "docker compose up",
+    "db:down": "docker compose down",
+    "db:reset": "docker compose down && docker compose up"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@types/dotenv": "^8.2.3",
+    "@types/express": "^5.0.6",
+    "dotenv": "^17.4.2",
+    "drizzle-orm": "^0.45.2",
+    "ejs": "^6.0.1",
+    "express": "^5.2.1",
+    "googleapis": "^173.0.0",
+    "node-cron": "^4.2.1",
+    "pg": "^8.21.0",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "zod": "^4.4.3"
+  }
+}

@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Product System Manager</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #1e293b;
+      --panel-2: #273549;
+      --border: #334155;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #6366f1;
+      --accent-hover: #818cf8;
+      --green: #22c55e;
+      --red: #ef4444;
+      --radius: 10px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    header {
+      padding: 24px 32px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header h1 { font-size: 20px; margin: 0; font-weight: 600; }
+    header .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--green); box-shadow: 0 0 10px var(--green); }
+    main { max-width: 1100px; margin: 0 auto; padding: 24px 32px 64px; }
+    nav.tabs { display: flex; gap: 6px; margin-bottom: 24px; flex-wrap: wrap; }
+    nav.tabs button {
+      background: var(--panel);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 10px 18px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all .15s;
+    }
+    nav.tabs button:hover { color: var(--text); }
+    nav.tabs button.active { background: var(--accent); color: white; border-color: var(--accent); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    .grid { display: grid; grid-template-columns: 360px 1fr; gap: 24px; align-items: start; }
+    @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+    .card h2 { margin: 0 0 16px; font-size: 15px; font-weight: 600; }
+    .card h3 { margin: 18px 0 8px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+    label { display: block; font-size: 12px; color: var(--muted); margin: 12px 0 4px; }
+    input, select {
+      width: 100%;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 9px 11px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+    }
+    input:focus, select:focus { outline: none; border-color: var(--accent); }
+    button.primary {
+      width: 100%;
+      margin-top: 18px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 11px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    button.primary:hover { background: var(--accent-hover); }
+    button.ghost {
+      background: transparent;
+      color: var(--accent-hover);
+      border: 1px dashed var(--border);
+      padding: 8px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      width: 100%;
+      margin-top: 8px;
+    }
+    button.del {
+      background: transparent; border: 1px solid var(--border); color: var(--red);
+      padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 12px;
+    }
+    button.del:hover { background: var(--red); color: white; }
+    .row { display: flex; gap: 8px; }
+    .row > * { flex: 1; }
+    .line-item {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      margin-top: 8px;
+      position: relative;
+    }
+    .line-item .x { position: absolute; top: 6px; right: 8px; cursor: pointer; color: var(--muted); font-size: 16px; }
+    .line-item .x:hover { color: var(--red); }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; color: var(--muted); font-weight: 500; padding: 8px; border-bottom: 1px solid var(--border); font-size: 12px; text-transform: uppercase; }
+    td { padding: 10px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    code.mono { font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted); }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; background: var(--panel-2); border: 1px solid var(--border); }
+    .empty { color: var(--muted); text-align: center; padding: 32px; font-size: 14px; }
+    details summary { cursor: pointer; color: var(--accent-hover); font-size: 12px; }
+    details pre { background: var(--bg); padding: 12px; border-radius: 8px; overflow:auto; font-size: 11px; color: var(--muted); }
+    #toast {
+      position: fixed; bottom: 24px; right: 24px; max-width: 360px;
+      padding: 14px 18px; border-radius: 10px; font-size: 14px;
+      transform: translateY(120%); transition: transform .25s; z-index: 50;
+    }
+    #toast.show { transform: translateY(0); }
+    #toast.ok { background: #052e16; border: 1px solid var(--green); color: #bbf7d0; }
+    #toast.err { background: #450a0a; border: 1px solid var(--red); color: #fecaca; }
+    .head-row { display:flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .head-row button { background: var(--panel-2); border:1px solid var(--border); color: var(--muted); padding:6px 12px; border-radius:8px; cursor:pointer; font-size:12px; }
+    .head-row button:hover { color: var(--text); }
+  </style>
+</head>
+<body>
+  <header>
+    <span class="dot"></span>
+    <h1>Product System Manager</h1>
+  </header>
+
+  <main>
+    <nav class="tabs">
+      <button data-tab="products" class="active">Produits</button>
+      <button data-tab="purchases">Achats</button>
+      <button data-tab="sales">Ventes</button>
+      <button data-tab="stock">Stock</button>
+    </nav>
+
+    <!-- PRODUITS -->
+    <section id="products" class="tab-panel active">
+      <div class="grid">
+        <div class="card">
+          <h2>Nouveau produit</h2>
+          <form id="product-form">
+            <label>Nom *</label>
+            <input name="name" required placeholder="T-Shirt Noir" />
+            <label>SKU</label>
+            <input name="sku" placeholder="TSHIRT-001" />
+            <label>Description</label>
+            <input name="description" placeholder="T-shirt premium" />
+            <button class="primary" type="submit">Créer le produit</button>
+          </form>
+        </div>
+        <div class="card">
+          <div class="head-row"><h2>Produits</h2><button onclick="loadProducts()">↻ Rafraîchir</button></div>
+          <div id="products-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACHATS -->
+    <section id="purchases" class="tab-panel">
+      <div class="grid">
+        <div class="card">
+          <h2>Nouvel approvisionnement</h2>
+          <form id="purchase-form">
+            <label>Référence *</label>
+            <input name="reference" required placeholder="PUR-2026-001" />
+            <label>Fournisseur</label>
+            <input name="supplierName" placeholder="ACME Ltd" />
+            <label>Date d'achat *</label>
+            <input name="purchaseDate" type="date" required />
+
+            <h3>Lignes (produits achetés)</h3>
+            <div id="purchase-items"></div>
+            <button type="button" class="ghost" onclick="addPurchaseItem()">+ Ajouter une ligne</button>
+
+            <h3>Frais</h3>
+            <div id="purchase-expenses"></div>
+            <button type="button" class="ghost" onclick="addExpense()">+ Ajouter un frais</button>
+
+            <button class="primary" type="submit">Créer l'achat</button>
+          </form>
+        </div>
+        <div class="card">
+          <div class="head-row"><h2>Achats</h2><button onclick="loadPurchases()">↻ Rafraîchir</button></div>
+          <div id="purchases-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VENTES -->
+    <section id="sales" class="tab-panel">
+      <div class="grid">
+        <div class="card">
+          <h2>Nouvelle vente</h2>
+          <form id="sale-form">
+            <label>Référence *</label>
+            <input name="reference" required placeholder="SALE-2026-001" />
+
+            <h3>Remise globale (optionnel)</h3>
+            <div class="row">
+              <select name="discountType">
+                <option value="">Aucune</option>
+                <option value="fixed">Fixe</option>
+                <option value="percentage">Pourcentage</option>
+              </select>
+              <input name="discountValue" type="number" step="0.01" placeholder="Valeur" />
+            </div>
+            <input name="discountReason" placeholder="Raison (ex: client fidèle)" style="margin-top:8px" />
+
+            <h3>Lignes (produits vendus)</h3>
+            <div id="sale-items"></div>
+            <button type="button" class="ghost" onclick="addSaleItem()">+ Ajouter une ligne</button>
+
+            <button class="primary" type="submit">Créer la vente</button>
+          </form>
+        </div>
+        <div class="card">
+          <div class="head-row"><h2>Ventes</h2><button onclick="loadSales()">↻ Rafraîchir</button></div>
+          <div id="sales-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STOCK -->
+    <section id="stock" class="tab-panel">
+      <div class="grid">
+        <div class="card">
+          <h2>Mouvement de stock</h2>
+          <form id="stock-form">
+            <label>Produit *</label>
+            <select name="productId" class="product-select" required></select>
+            <label>Type *</label>
+            <select name="type">
+              <option value="in">Entrée (in)</option>
+              <option value="out">Sortie (out)</option>
+              <option value="adjustment">Ajustement</option>
+            </select>
+            <div class="row">
+              <div><label>Quantité *</label><input name="quantity" type="number" required placeholder="10" /></div>
+              <div><label>Origine *</label><input name="sourceType" required placeholder="manual" value="manual" /></div>
+            </div>
+            <button class="primary" type="submit">Enregistrer le mouvement</button>
+          </form>
+        </div>
+        <div class="card">
+          <div class="head-row"><h2>Inventaire</h2><button onclick="loadStock()">↻ Rafraîchir</button></div>
+          <div id="inventory-list"></div>
+          <h3>Derniers mouvements</h3>
+          <div id="movements-list"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast"></div>
+
+  <script>
+    // ---------- helpers ----------
+    let PRODUCTS = [];
+
+    async function api(method, path, body) {
+      const opts = { method, headers: { "Content-Type": "application/json" } };
+      if (body !== undefined) opts.body = JSON.stringify(body);
+      const res = await fetch(path, opts);
+      const text = await res.text();
+      const data = text ? JSON.parse(text) : null;
+      if (!res.ok) {
+        const msg = data?.error || `Erreur ${res.status}`;
+        const detail = data?.issues ? " — " + data.issues.map(i => `${i.path.join(".")}: ${i.message}`).join(", ") : "";
+        throw new Error(msg + detail);
+      }
+      return data;
+    }
+
+    function toast(msg, ok = true) {
+      const el = document.getElementById("toast");
+      el.textContent = msg;
+      el.className = "show " + (ok ? "ok" : "err");
+      setTimeout(() => { el.className = el.className.replace("show", ""); }, 3500);
+    }
+
+    const productName = (id) => PRODUCTS.find(p => p.id === id)?.name || id.slice(0, 8);
+    const short = (id) => `<code class="mono">${id.slice(0, 8)}…</code>`;
+
+    function tabSwitch(tab) {
+      document.querySelectorAll("nav.tabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
+      document.querySelectorAll(".tab-panel").forEach(p => p.classList.toggle("active", p.id === tab));
+    }
+    document.querySelectorAll("nav.tabs button").forEach(b => b.onclick = () => tabSwitch(b.dataset.tab));
+
+    function productOptions() {
+      return `<option value="">— produit —</option>` +
+        PRODUCTS.map(p => `<option value="${p.id}">${p.name}</option>`).join("");
+    }
+    function refreshProductSelects() {
+      document.querySelectorAll("select.product-select").forEach(sel => {
+        const cur = sel.value;
+        sel.innerHTML = productOptions();
+        sel.value = cur;
+      });
+    }
+
+    // ---------- PRODUITS ----------
+    async function loadProducts() {
+      PRODUCTS = await api("GET", "/product");
+      refreshProductSelects();
+      const el = document.getElementById("products-list");
+      if (!PRODUCTS.length) { el.innerHTML = `<div class="empty">Aucun produit.</div>`; return; }
+      el.innerHTML = `<table><thead><tr><th>Nom</th><th>SKU</th><th>ID</th><th></th></tr></thead><tbody>${
+        PRODUCTS.map(p => `<tr>
+          <td>${p.name}<br><span class="badge">${p.description || "—"}</span></td>
+          <td>${p.sku || "—"}</td>
+          <td>${short(p.id)}</td>
+          <td><button class="del" onclick="delProduct('${p.id}')">Suppr</button></td>
+        </tr>`).join("")
+      }</tbody></table>`;
+    }
+    async function delProduct(id) {
+      try { await api("DELETE", "/product/" + id); toast("Produit supprimé"); loadProducts(); }
+      catch (e) { toast(e.message, false); }
+    }
+    document.getElementById("product-form").onsubmit = async (e) => {
+      e.preventDefault();
+      const f = e.target;
+      const body = {
+        name: f.name.value,
+        sku: f.sku.value || null,
+        description: f.description.value || null,
+      };
+      try { await api("POST", "/product", body); toast("Produit créé"); f.reset(); loadProducts(); }
+      catch (err) { toast(err.message, false); }
+    };
+
+    // ---------- ACHATS ----------
+    function addPurchaseItem() {
+      const div = document.createElement("div");
+      div.className = "line-item";
+      div.innerHTML = `<span class="x" onclick="this.parentElement.remove()">×</span>
+        <label>Produit</label><select class="product-select pi-product">${productOptions()}</select>
+        <div class="row" style="margin-top:8px">
+          <div><label>Quantité</label><input type="number" class="pi-qty" placeholder="10" /></div>
+          <div><label>Prix unitaire</label><input type="number" step="0.01" class="pi-price" placeholder="3500" /></div>
+        </div>`;
+      document.getElementById("purchase-items").appendChild(div);
+    }
+    function addExpense() {
+      const div = document.createElement("div");
+      div.className = "line-item";
+      div.innerHTML = `<span class="x" onclick="this.parentElement.remove()">×</span>
+        <div class="row">
+          <div><label>Libellé</label><input class="ex-label" placeholder="Transport" /></div>
+          <div><label>Type</label><select class="ex-type">
+            <option value="transport">transport</option><option value="customs">customs</option>
+            <option value="packaging">packaging</option><option value="bank_fee">bank_fee</option>
+            <option value="other">other</option></select></div>
+        </div>
+        <label>Montant</label><input type="number" step="0.01" class="ex-amount" placeholder="25000" />`;
+      document.getElementById("purchase-expenses").appendChild(div);
+    }
+    document.getElementById("purchase-form").onsubmit = async (e) => {
+      e.preventDefault();
+      const f = e.target;
+      const items = [...document.querySelectorAll("#purchase-items .line-item")].map(d => ({
+        productId: d.querySelector(".pi-product").value,
+        quantity: Number(d.querySelector(".pi-qty").value),
+        unitPurchasePrice: Number(d.querySelector(".pi-price").value),
+      }));
+      const expenses = [...document.querySelectorAll("#purchase-expenses .line-item")].map(d => ({
+        label: d.querySelector(".ex-label").value,
+        type: d.querySelector(".ex-type").value,
+        amount: Number(d.querySelector(".ex-amount").value),
+        notes: null,
+      }));
+      const body = {
+        purchase: { reference: f.reference.value, supplierName: f.supplierName.value || null, purchaseDate: f.purchaseDate.value },
+        items, expenses,
+      };
+      try {
+        await api("POST", "/purchase", body);
+        toast("Achat créé"); f.reset();
+        document.getElementById("purchase-items").innerHTML = "";
+        document.getElementById("purchase-expenses").innerHTML = "";
+        loadPurchases();
+      } catch (err) { toast(err.message, false); }
+    };
+    async function loadPurchases() {
+      const list = await api("GET", "/purchase");
+      const el = document.getElementById("purchases-list");
+      if (!list.length) { el.innerHTML = `<div class="empty">Aucun achat.</div>`; return; }
+      el.innerHTML = `<table><thead><tr><th>Référence</th><th>Fournisseur</th><th>Date</th><th></th></tr></thead><tbody>${
+        list.map(p => `<tr>
+          <td>${p.reference}</td><td>${p.supplierName || "—"}</td>
+          <td>${new Date(p.purchaseDate).toLocaleDateString()}</td>
+          <td>
+            <button class="del" onclick="delPurchase('${p.id}')">Suppr</button>
+            <details style="margin-top:6px"><summary>détails</summary><pre id="pur-${p.id}">chargement…</pre></details>
+          </td>
+        </tr>`).join("")
+      }</tbody></table>`;
+      list.forEach(p => loadAggregate("/purchase/" + p.id, "pur-" + p.id));
+    }
+    async function delPurchase(id) {
+      try { await api("DELETE", "/purchase/" + id); toast("Achat supprimé"); loadPurchases(); }
+      catch (e) { toast(e.message, false); }
+    }
+
+    // ---------- VENTES ----------
+    function addSaleItem() {
+      const div = document.createElement("div");
+      div.className = "line-item";
+      div.innerHTML = `<span class="x" onclick="this.parentElement.remove()">×</span>
+        <label>Produit</label><select class="product-select si-product">${productOptions()}</select>
+        <div class="row" style="margin-top:8px">
+          <div><label>Quantité</label><input type="number" class="si-qty" placeholder="2" /></div>
+          <div><label>Prix unitaire</label><input type="number" step="0.01" class="si-price" placeholder="5500" /></div>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <div><label>Remise</label><select class="si-dtype">
+            <option value="">Aucune</option><option value="fixed">Fixe</option><option value="percentage">%</option>
+          </select></div>
+          <div><label>Valeur remise</label><input type="number" step="0.01" class="si-dvalue" placeholder="500" /></div>
+        </div>`;
+      document.getElementById("sale-items").appendChild(div);
+    }
+    function buildDiscount(type, value, reason) {
+      if (!type) return null;
+      return { type, value: Number(value || 0), reason: reason || null };
+    }
+    document.getElementById("sale-form").onsubmit = async (e) => {
+      e.preventDefault();
+      const f = e.target;
+      const items = [...document.querySelectorAll("#sale-items .line-item")].map(d => ({
+        productId: d.querySelector(".si-product").value,
+        quantity: Number(d.querySelector(".si-qty").value),
+        unitSalePrice: Number(d.querySelector(".si-price").value),
+        discount: buildDiscount(d.querySelector(".si-dtype").value, d.querySelector(".si-dvalue").value, null),
+      }));
+      const body = {
+        sale: { reference: f.reference.value, discount: buildDiscount(f.discountType.value, f.discountValue.value, f.discountReason.value) },
+        items,
+      };
+      try {
+        await api("POST", "/sale", body);
+        toast("Vente créée"); f.reset();
+        document.getElementById("sale-items").innerHTML = "";
+        loadSales();
+      } catch (err) { toast(err.message, false); }
+    };
+    async function loadSales() {
+      const list = await api("GET", "/sale");
+      const el = document.getElementById("sales-list");
+      if (!list.length) { el.innerHTML = `<div class="empty">Aucune vente.</div>`; return; }
+      el.innerHTML = `<table><thead><tr><th>Référence</th><th>Remise</th><th>Date</th><th></th></tr></thead><tbody>${
+        list.map(s => `<tr>
+          <td>${s.reference}</td>
+          <td>${s.discount ? `${s.discount.value} <span class="badge">${s.discount.type}</span>` : "—"}</td>
+          <td>${new Date(s.saleDate).toLocaleDateString()}</td>
+          <td>
+            <button class="del" onclick="delSale('${s.id}')">Suppr</button>
+            <details style="margin-top:6px"><summary>détails</summary><pre id="sal-${s.id}">chargement…</pre></details>
+          </td>
+        </tr>`).join("")
+      }</tbody></table>`;
+      list.forEach(s => loadAggregate("/sale/" + s.id, "sal-" + s.id));
+    }
+    async function delSale(id) {
+      try { await api("DELETE", "/sale/" + id); toast("Vente supprimée"); loadSales(); }
+      catch (e) { toast(e.message, false); }
+    }
+
+    async function loadAggregate(path, elId) {
+      try {
+        const data = await api("GET", path);
+        const el = document.getElementById(elId);
+        if (el) el.textContent = JSON.stringify(data, null, 2);
+      } catch (e) { /* ignore */ }
+    }
+
+    // ---------- STOCK ----------
+    document.getElementById("stock-form").onsubmit = async (e) => {
+      e.preventDefault();
+      const f = e.target;
+      const body = {
+        productId: f.productId.value,
+        type: f.type.value,
+        quantity: Number(f.quantity.value),
+        sourceType: f.sourceType.value,
+        sourceId: null,
+      };
+      try { await api("POST", "/stock-movement", body); toast("Mouvement enregistré"); f.reset(); f.sourceType.value = "manual"; loadStock(); }
+      catch (err) { toast(err.message, false); }
+    };
+    async function loadStock() {
+      const [inv, mov] = await Promise.all([api("GET", "/inventory"), api("GET", "/stock-movement")]);
+      const invEl = document.getElementById("inventory-list");
+      invEl.innerHTML = inv.length
+        ? `<table><thead><tr><th>Produit</th><th>En stock</th></tr></thead><tbody>${
+            inv.map(i => `<tr><td>${productName(i.productId)}</td><td><span class="badge">${i.quantityOnHand}</span></td></tr>`).join("")
+          }</tbody></table>`
+        : `<div class="empty">Inventaire vide.</div>`;
+      const movEl = document.getElementById("movements-list");
+      const last = mov.slice(-12).reverse();
+      movEl.innerHTML = last.length
+        ? `<table><thead><tr><th>Produit</th><th>Type</th><th>Qté</th><th>Origine</th></tr></thead><tbody>${
+            last.map(m => `<tr><td>${productName(m.productId)}</td><td><span class="badge">${m.type}</span></td><td>${m.quantity}</td><td>${m.sourceType}</td></tr>`).join("")
+          }</tbody></table>`
+        : `<div class="empty">Aucun mouvement.</div>`;
+    }
+
+    // ---------- init ----------
+    (async () => {
+      try {
+        await loadProducts();
+        addPurchaseItem(); addSaleItem();
+        await Promise.all([loadPurchases(), loadSales(), loadStock()]);
+      } catch (e) { toast("API injoignable — le serveur tourne-t-il ?", false); }
+    })();
+  </script>
+</body>
+</html>

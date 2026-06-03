@@ -1,0 +1,1 @@
+ALTER TABLE "easysell_orders" ADD CONSTRAINT "easysell_orders_sheet_order_uniq" UNIQUE("sheet_id","external_order_id");
