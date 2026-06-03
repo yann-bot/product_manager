@@ -13,6 +13,22 @@ export class ConflictError extends Error {
   }
 }
 
+/** Ressource demandée inexistante (-> HTTP 404). */
+export class NotFoundError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "NotFoundError";
+  }
+}
+
+/** Donnée d'entrée invalide vis-à-vis d'une règle métier (-> HTTP 400). */
+export class ValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ValidationError";
+  }
+}
+
 /** Code SQLSTATE Postgres d'une violation de clé étrangère. */
 const FK_VIOLATION = "23503";
 

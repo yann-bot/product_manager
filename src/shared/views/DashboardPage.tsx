@@ -50,6 +50,14 @@ export function DashboardPage({
             </div>
           </div>
         ) : null}
+        <div className="card">
+          <div className="k">Catalogue produit</div>
+          <div className="v" style={{ fontSize: 14, marginTop: 8 }}>
+            <a className="btn btn-primary" href="/products/view">
+              Ouvrir le catalogue →
+            </a>
+          </div>
+        </div>
       </div>
 
       <form

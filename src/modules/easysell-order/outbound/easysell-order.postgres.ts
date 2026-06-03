@@ -1,6 +1,6 @@
 import { desc } from "drizzle-orm";
 import type { DB } from "../../../db/client";
-import { easysellOrders } from "../../../db/schema";
+import { easysellOrders } from "../../../db/schemas/easysell-order.schema";
 import type { EasySellOrder, EasySellOrderRepository } from "../core/entities";
 
 type Row = typeof easysellOrders.$inferSelect;
