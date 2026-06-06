@@ -1,0 +1,2 @@
+ALTER TABLE "stock_movements" ADD COLUMN "easysell_sale_id" uuid;--> statement-breakpoint
+ALTER TABLE "stock_movements" ADD CONSTRAINT "stock_movements_easysell_sale_id_easysell_sales_id_fk" FOREIGN KEY ("easysell_sale_id") REFERENCES "public"."easysell_sales"("id") ON DELETE no action ON UPDATE no action;
