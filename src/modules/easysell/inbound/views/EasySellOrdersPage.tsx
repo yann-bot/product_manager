@@ -70,6 +70,7 @@ export function EasySellOrdersPage({
               <th className="num">Qté</th>
               <th className="num">Total</th>
               <th>Statut</th>
+              <th>Note</th>
             </tr>
           </thead>
           <tbody>
@@ -99,11 +100,12 @@ export function EasySellOrdersPage({
                     {o.prixTotal !== null ? money(o.prixTotal) : "—"}
                   </td>
                   <td>{dash(o.status)}</td>
+                  <td className="muted">{dash(o.note)}</td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={12} className="empty">
+                <td colSpan={13} className="empty">
                   Aucune commande importée.
                 </td>
               </tr>
