@@ -4,7 +4,7 @@
 // La logique vit dans EasySellSyncService (partagée avec le cron).
 
 import "dotenv/config";
-import { EasySellSyncService } from "../modules/easysell-order/core/sync.service";
+import { EasySellSyncService } from "../modules/easysell/core/sync.service";
 
 async function main() {
   const r = await new EasySellSyncService().sync();

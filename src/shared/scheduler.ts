@@ -1,16 +1,24 @@
 import cron from "node-cron";
-import { EasySellSyncService } from "../modules/easysell-order/core/sync.service";
+import { db } from "../db/client";
+import { EasySellSyncService } from "../modules/easysell/core/sync.service";
+import { EasySellSaleImportService } from "../modules/easysell-sale/core/import-sales.service";
+import { StockService } from "../modules/stock/core/stock.service";
+import { StockPostgresRepository } from "../modules/stock/outbound/stock.postgres";
+import { ProductPostgresRepository } from "../modules/product/outbound/product.postgres";
 
 //
 // ======================================================
-// COUCHE D'AUTOMATISATION — 1 cron
+// COUCHE D'AUTOMATISATION — pipeline EasySell (1 min)
 // ======================================================
-// CRON 1 (1 min) : Google Sheet -> easysell_orders (sync brut)
+// CRON 1 : Google Sheet -> easysell_orders (sync brut)
+// CRON 2 : easysell_orders -> easysell_sales (import des ventes livrées)
 //
-// V1 : ingestion brute uniquement, aucun traitement métier en aval.
+// Les deux étapes sont CHAÎNÉES dans un même job : l'import tourne juste
+// après le sync, donc sur des données fraîches, et partage le verrou
+// anti-chevauchement (pas de course entre l'écriture du sync et la
+// lecture de l'import).
 //
 // Désactivable via DISABLE_CRONS=true (utile en dev / scripts manuels).
-// Garde anti-chevauchement : un job ne se relance pas s'il tourne encore.
 // ======================================================
 //
 
@@ -40,15 +48,24 @@ export function startCrons(): void {
   }
 
   const sync = new EasySellSyncService();
+  const importSales = new EasySellSaleImportService(
+    new StockService(new StockPostgresRepository(db), new ProductPostgresRepository(db)),
+  );
 
-  // CRON 1 : import depuis Google Sheet -> easysell_orders (toutes les minutes).
+  // Pipeline (toutes les minutes) : sync Sheet -> easysell_orders, puis
+  // import easysell_orders -> easysell_sales (sur données fraîches).
   cron.schedule(
     "* * * * *",
-    guarded("SYNC", async () => {
-      const r = await sync.sync();
-      return `upserted=${r.upserted} skipped=${r.skipped}`;
+    guarded("PIPELINE", async () => {
+      const s = await sync.sync();
+      const i = await importSales.import();
+      return (
+        `sync upserted=${s.upserted} skipped=${s.skipped} | ` +
+        `import imported=${i.imported} (reconciled=${i.reconciled}, pending=${i.pending}) ` +
+        `skippedExisting=${i.skippedExisting} skippedNotDelivered=${i.skippedNotDelivered}`
+      );
     }),
   );
 
-  console.log("⏱️  Cron démarré — SYNC (* * * * *)");
+  console.log("⏱️  Cron démarré — PIPELINE sync→import (* * * * *)");
 }

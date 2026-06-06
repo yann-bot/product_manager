@@ -70,8 +70,12 @@
   <header>
     <nav class="nav">
       <a class="brand" href="/">📊 Dashboard</a>
+      <a href="/analytics/view" class="<%= active === 'analytics' ? 'active' : '' %>">Analytics</a>
+      <a href="/sales/view" class="<%= active === 'sales' ? 'active' : '' %>">Ventes</a>
       <a href="/products/view" class="<%= active === 'products' ? 'active' : '' %>">Produits</a>
+      <a href="/stock/view" class="<%= active === 'stock' ? 'active' : '' %>">Stock</a>
       <a href="/easysell-orders/view" class="<%= active === 'easysell-orders' ? 'active' : '' %>">Commandes EasySell</a>
+      <a href="/reconciliation/view" class="<%= active === 'reconciliation' ? 'active' : '' %>">Réconciliation</a>
     </nav>
     <h1><%= title %></h1>
     <% if (subtitle) { %><div class="sub"><%= subtitle %></div><% } %>
