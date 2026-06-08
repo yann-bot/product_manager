@@ -1,0 +1,28 @@
+# Blueprint Render — service web conteneurisé (Dockerfile).
+# La base PostgreSQL est déjà provisionnée sur Render (hors blueprint) : on
+# pointe dessus via DATABASE_URL (renseigné dans le dashboard, secret).
+#
+# ⚠️ plan `free` : le service s'endort après ~15 min sans trafic HTTP → le
+# cron in-process (sync EasySell chaque minute) ne tourne pas pendant la
+# mise en veille. Pour un cron toujours actif, passer le service en `starter`.
+services:
+  - type: web
+    name: product-system-manager
+    runtime: docker
+    repo: https://github.com/yann-bot/product_manager
+    branch: develop
+    region: oregon            # même région que la base (latence + réseau interne)
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /
+    autoDeploy: true          # redéploiement auto à chaque push sur develop
+    envVars:
+      # URL INTERNE de la Postgres Render (pas de SSL en réseau interne).
+      - key: DATABASE_URL
+        sync: false
+      - key: GOOGLE_CLIENT_EMAIL
+        sync: false
+      - key: GOOGLE_PRIVATE_KEY
+        sync: false
+      - key: GOOGLE_SHEET_ID
+        sync: false
