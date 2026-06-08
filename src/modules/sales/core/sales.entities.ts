@@ -33,6 +33,9 @@ export type Sale = {
   status: SaleStatus;
   notes: string | null;
 
+  // Provenance : vente issue d'une réconciliation EasySell (null si manuelle).
+  easysellSaleId: string | null;
+
   saleDate: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -57,6 +60,8 @@ export type NewSale = {
   totalAmount: number;
   status: SaleStatus;
   notes?: string;
+  /** Provenance EasySell (réconciliation) ; absent pour une vente manuelle. */
+  easysellSaleId?: string;
   saleDate: Date;
 };
 

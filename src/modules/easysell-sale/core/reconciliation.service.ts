@@ -4,7 +4,7 @@ import {
   easysellSales,
   easysellProductMappings,
 } from "../../../db/schemas/easysell-sale.schema";
-import type { StockOut } from "./stock.port";
+import type { SalesWriter } from "./sales.port";
 
 //
 // ======================================================
@@ -17,8 +17,9 @@ import type { StockOut } from "./stock.port";
 //   2) on réconcilie IMMÉDIATEMENT toutes les ventes "pending" de ce nom
 //      (l'import saute les déjà-importées, donc il faut les mettre à jour
 //      ici, sinon elles resteraient "pending" pour toujours) ;
-//   3) chaque vente réconciliée génère une SORTIE de stock (OUT) — l'import
-//      ne ramène que des commandes livrées, donc des biens réellement sortis.
+//   3) chaque vente réconciliée matérialise une VENTE INTERNE (port
+//      SalesWriter) — l'import ne ramène que des commandes livrées, donc de
+//      vraies ventes ; c'est la vente créée qui décrémente le stock.
 // Service auto-suffisant (db en direct), en miroir des autres services
 // batch du module EasySell.
 // ======================================================
@@ -40,7 +41,7 @@ export interface ReconciliationCounts {
 }
 
 export class ReconciliationService {
-  constructor(private readonly stock: StockOut) {}
+  constructor(private readonly sales: SalesWriter) {}
 
   /** Groupes de ventes EN ATTENTE, par nom de produit (les plus gros d'abord). */
   async pendingGroups(): Promise<PendingGroup[]> {
@@ -93,16 +94,26 @@ export class ReconciliationService {
           eq(easysellSales.reconciliationStatus, "pending"),
         ),
       )
-      .returning({ id: easysellSales.id, quantity: easysellSales.quantity });
+      .returning({
+        id: easysellSales.id,
+        quantity: easysellSales.quantity,
+        unitPrice: easysellSales.unitPrice,
+        totalPrice: easysellSales.totalPrice,
+        saleDate: easysellSales.saleDate,
+      });
 
-    // 3. Sortie de stock par vente réconciliée (quantité de la vente).
-    //    Quantité nulle/≤0 ignorée : on ne décrémente pas un montant inconnu.
+    // 3. Une VENTE INTERNE par vente réconciliée (qui génère la sortie de
+    //    stock). Quantité nulle/≤0 ignorée : on ne vend pas une quantité
+    //    inconnue. Montants numeric (string) -> number à la frontière.
     for (const row of updated) {
       if (row.quantity !== null && row.quantity > 0) {
-        await this.stock.recordEasySellOut({
+        await this.sales.createFromEasySell({
           productId,
           quantity: row.quantity,
           easysellSaleId: row.id,
+          unitPrice: row.unitPrice !== null ? Number(row.unitPrice) : null,
+          totalPrice: row.totalPrice !== null ? Number(row.totalPrice) : null,
+          saleDate: row.saleDate,
         });
       }
     }

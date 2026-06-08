@@ -50,6 +50,13 @@
       "when": 1780763634147,
       "tag": "0006_add_easysell_sale_link",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1780936696331,
+      "tag": "0007_add_sale_easysell_link",
+      "breakpoints": true
     }
   ]
 }

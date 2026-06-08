@@ -95,24 +95,4 @@ export class StockService {
       saleId: input.saleId,
     });
   }
-
-  /**
-   * Sortie liée à une vente EasySell réconciliée (qty livrée). Le produit
-   * vient du mapping (FK garantie), donc pas de validation produit ici.
-   * L'appelant n'invoque cette méthode que pour une quantity > 0.
-   */
-  async recordEasySellOut(input: {
-    productId: string;
-    quantity: number;
-    easysellSaleId: string;
-  }): Promise<void> {
-    const delta = computeDelta("out", input.quantity, 0); // −quantity
-    await this.repo.create({
-      productId: input.productId,
-      type: "out",
-      quantity: delta,
-      note: "Vente EasySell",
-      easysellSaleId: input.easysellSaleId,
-    });
-  }
 }

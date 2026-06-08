@@ -70,6 +70,7 @@ class FakeSalesRepository implements SalesRepository {
       totalAmount: sale.totalAmount,
       status: sale.status,
       notes: sale.notes ?? null,
+      easysellSaleId: sale.easysellSaleId ?? null,
       saleDate: sale.saleDate,
       createdAt: now,
       updatedAt: now,
@@ -188,4 +189,50 @@ test("cancel : vente introuvable -> NotFoundError", async () => {
     new FakeStockLedger(),
   );
   await expect(service.cancel(crypto.randomUUID())).rejects.toBeInstanceOf(NotFoundError);
+});
+
+test("createFromEasySell : utilise le MONTANT EasySell réel + sort le stock + trace la provenance", async () => {
+  const product = makeProduct({ sellingPrice: 1000 }); // prix catalogue ignoré ici
+  const sales = new FakeSalesRepository();
+  const stock = new FakeStockLedger();
+  const service = new SalesService(sales, new FakeProductRepository([product]), stock);
+  const esId = crypto.randomUUID();
+  const saleDate = new Date("2026-05-01T10:00:00Z");
+
+  await service.createFromEasySell({
+    productId: product.id,
+    quantity: 3,
+    easysellSaleId: esId,
+    unitPrice: null,
+    totalPrice: 9000, // montant EasySell réel (≠ 3 × 1000 catalogue)
+    saleDate,
+  });
+
+  const [sale] = [...sales.items.values()];
+  expect(sale).toBeDefined();
+  expect(sale!.totalAmount).toBe(9000); // montant EasySell, pas le catalogue
+  expect(sale!.unitPrice).toBe(3000);
+  expect(sale!.status).toBe("completed");
+  expect(sale!.easysellSaleId).toBe(esId);
+  expect(sale!.saleDate).toEqual(saleDate);
+  expect(stock.outs).toEqual([{ productId: product.id, quantity: 3, saleId: sale!.id }]);
+});
+
+test("createFromEasySell : repli sur le prix catalogue quand le montant EasySell est absent", async () => {
+  const product = makeProduct({ sellingPrice: 1500 });
+  const sales = new FakeSalesRepository();
+  const service = new SalesService(sales, new FakeProductRepository([product]), new FakeStockLedger());
+
+  await service.createFromEasySell({
+    productId: product.id,
+    quantity: 2,
+    easysellSaleId: crypto.randomUUID(),
+    unitPrice: null,
+    totalPrice: null, // source EasySell incomplète -> repli prix produit
+    saleDate: null,
+  });
+
+  const [sale] = [...sales.items.values()];
+  expect(sale!.unitPrice).toBe(1500);
+  expect(sale!.totalAmount).toBe(3000);
 });

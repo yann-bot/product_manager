@@ -9,18 +9,19 @@ import { EasySellSaleImportService } from "../modules/easysell-sale/core/import-
 import { StockService } from "../modules/stock/core/stock.service";
 import { StockPostgresRepository } from "../modules/stock/outbound/stock.postgres";
 import { ProductPostgresRepository } from "../modules/product/outbound/product.postgres";
+import { SalesService } from "../modules/sales/core/sales.service";
+import { SalesPostgresRepository } from "../modules/sales/outbound/sales.postgres";
 
 async function main() {
-  const stock = new StockService(
-    new StockPostgresRepository(db),
-    new ProductPostgresRepository(db),
-  );
-  const r = await new EasySellSaleImportService(stock).import();
+  const productRepo = new ProductPostgresRepository(db);
+  const stock = new StockService(new StockPostgresRepository(db), productRepo);
+  const sales = new SalesService(new SalesPostgresRepository(db), productRepo, stock);
+  const r = await new EasySellSaleImportService(sales).import();
   console.log(
     `${r.imported} vente(s) importée(s) dans easysell_sales ` +
       `(réconciliées=${r.reconciled}, en attente=${r.pending}) ; ` +
       `${r.skippedExisting} déjà importée(s), ${r.skippedNotDelivered} non livrée(s)/sans produit ; ` +
-      `${r.stockOut} sortie(s) de stock.`,
+      `${r.salesCreated} vente(s) interne(s) créée(s).`,
   );
 }
 

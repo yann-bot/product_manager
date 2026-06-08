@@ -21,6 +21,7 @@ function toEntity(row: Row): Sale {
     totalAmount: toNumber(row.totalAmount),
     status: row.status as Sale["status"],
     notes: row.notes,
+    easysellSaleId: row.easysellSaleId,
     saleDate: row.saleDate,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -57,6 +58,7 @@ export class SalesPostgresRepository implements SalesRepository {
         totalAmount: toMoney(sale.totalAmount),
         status: sale.status,
         notes: sale.notes ?? null,
+        easysellSaleId: sale.easysellSaleId ?? null,
         saleDate: sale.saleDate,
       })
       .returning();

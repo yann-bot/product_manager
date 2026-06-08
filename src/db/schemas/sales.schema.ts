@@ -9,6 +9,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { DEFAULT_SALE_STATUS } from "../../modules/sales/core/sales.entities";
 import { products } from "./product.schema";
+import { easysellSales } from "./easysell-sale.schema";
 
 //
 // ======================================================
@@ -52,6 +53,14 @@ export const sales = pgTable("sales", {
     .default(DEFAULT_SALE_STATUS),
 
   notes: text("notes"),
+
+  // Provenance : vente issue de la réconciliation d'une vente EasySell.
+  // NULL pour une vente saisie manuellement. UNIQUE (un easysell_sales ne
+  // donne qu'UNE vente interne) => idempotence de la réconciliation/backfill.
+  // Postgres autorise plusieurs NULL sous une contrainte unique.
+  easysellSaleId: uuid("easysell_sale_id")
+    .references(() => easysellSales.id)
+    .unique(),
 
   // Date commerciale de la vente (≠ created_at technique). Défaut now().
   saleDate: timestamp("sale_date").defaultNow().notNull(),

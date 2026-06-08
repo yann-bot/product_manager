@@ -5,6 +5,8 @@ import { EasySellSaleImportService } from "../modules/easysell-sale/core/import-
 import { StockService } from "../modules/stock/core/stock.service";
 import { StockPostgresRepository } from "../modules/stock/outbound/stock.postgres";
 import { ProductPostgresRepository } from "../modules/product/outbound/product.postgres";
+import { SalesService } from "../modules/sales/core/sales.service";
+import { SalesPostgresRepository } from "../modules/sales/outbound/sales.postgres";
 
 //
 // ======================================================
@@ -48,9 +50,14 @@ export function startCrons(): void {
   }
 
   const sync = new EasySellSyncService();
-  const importSales = new EasySellSaleImportService(
-    new StockService(new StockPostgresRepository(db), new ProductPostgresRepository(db)),
+  const productRepo = new ProductPostgresRepository(db);
+  const stockService = new StockService(new StockPostgresRepository(db), productRepo);
+  const salesService = new SalesService(
+    new SalesPostgresRepository(db),
+    productRepo,
+    stockService,
   );
+  const importSales = new EasySellSaleImportService(salesService);
 
   // Pipeline (toutes les minutes) : sync Sheet -> easysell_orders, puis
   // import easysell_orders -> easysell_sales (sur données fraîches).

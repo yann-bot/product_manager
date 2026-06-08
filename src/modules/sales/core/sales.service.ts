@@ -77,6 +77,51 @@ export class SalesService {
     return sale;
   }
 
+  /**
+   * UC-02 — Matérialise une vente interne à partir d'une vente EasySell
+   * RÉCONCILIÉE. La vraie transaction a déjà eu lieu sur EasySell : on
+   * privilégie donc le MONTANT EASYSELL réel (argent encaissé), avec repli
+   * sur le prix catalogue, puis 0 en dernier recours (la vente doit exister
+   * pour décrémenter le stock). Comme `create`, génère la sortie de stock.
+   * La provenance `easysellSaleId` (UNIQUE en base) garantit l'idempotence.
+   */
+  async createFromEasySell(input: {
+    productId: string;
+    quantity: number;
+    easysellSaleId: string;
+    unitPrice: number | null;
+    totalPrice: number | null;
+    saleDate: Date | null;
+  }): Promise<void> {
+    const quantity = requireQuantity(input.quantity);
+
+    const product = await this.products.findById(input.productId);
+    if (!product)
+      throw new NotFoundError(`Produit introuvable : ${input.productId}`);
+
+    const { unitPrice, totalAmount } = resolveEasySellPricing(
+      input,
+      quantity,
+      product,
+    );
+
+    const sale = await this.repo.create({
+      productId: product.id,
+      quantity,
+      unitPrice,
+      totalAmount,
+      status: DEFAULT_SALE_STATUS,
+      easysellSaleId: input.easysellSaleId,
+      saleDate: input.saleDate ?? new Date(),
+    });
+
+    await this.stock.recordSaleOut({
+      productId: sale.productId,
+      quantity: sale.quantity,
+      saleId: sale.id,
+    });
+  }
+
   /** UC-04 — Annule une vente (RM-06). Idempotence refusée : double annulation = erreur. */
   async cancel(id: string): Promise<Sale> {
     const sale = await this.findById(id); // NotFoundError si absent
@@ -104,6 +149,26 @@ function requireQuantity(quantity: number | undefined): number {
   if (!Number.isInteger(quantity) || quantity <= 0)
     throw new ValidationError("La quantité doit être un entier supérieur à zéro."); // RM-02
   return quantity;
+}
+
+/**
+ * Prix d'une vente issue d'EasySell : montant réel EasySell d'abord (total,
+ * sinon unitaire × qté), repli sur le prix catalogue, 0 en dernier recours.
+ */
+function resolveEasySellPricing(
+  input: { unitPrice: number | null; totalPrice: number | null },
+  quantity: number,
+  product: Product,
+): { unitPrice: number; totalAmount: number } {
+  if (input.totalPrice != null && input.totalPrice > 0) {
+    return { totalAmount: input.totalPrice, unitPrice: input.totalPrice / quantity };
+  }
+  if (input.unitPrice != null && input.unitPrice > 0) {
+    return { unitPrice: input.unitPrice, totalAmount: input.unitPrice * quantity };
+  }
+  const p = product.sellingPrice;
+  const unit = p != null && p > 0 ? p : 0;
+  return { unitPrice: unit, totalAmount: unit * quantity };
 }
 
 /** RM-03 — Le prix de vente est lu sur le produit ; il doit être défini et > 0. */

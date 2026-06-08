@@ -9,7 +9,7 @@ import {
   buildEasySellSaleInsert,
   type SourceOrder,
 } from "./build-easysell-sale";
-import type { StockOut } from "./stock.port";
+import type { SalesWriter } from "./sales.port";
 
 //
 // ======================================================
@@ -41,12 +41,12 @@ export interface ImportResult {
   skippedExisting: number;
   /** Commandes non livrées ou sans nom de produit — pas des ventes. */
   skippedNotDelivered: number;
-  /** Sorties de stock générées par les ventes auto-réconciliées à l'import. */
-  stockOut: number;
+  /** Ventes internes créées par les auto-réconciliations à l'import. */
+  salesCreated: number;
 }
 
 export class EasySellSaleImportService {
-  constructor(private readonly stock: StockOut) {}
+  constructor(private readonly sales: SalesWriter) {}
 
   async import(): Promise<ImportResult> {
     // 1. Source : commandes brutes (colonnes utiles ; montants en string).
@@ -113,7 +113,7 @@ export class EasySellSaleImportService {
     }
 
     const rows = [...toInsert.values()];
-    let stockOut = 0;
+    let salesCreated = 0;
     if (rows.length > 0) {
       const inserted = await db
         .insert(easysellSales)
@@ -123,10 +123,13 @@ export class EasySellSaleImportService {
           productId: easysellSales.productId,
           quantity: easysellSales.quantity,
           reconciliationStatus: easysellSales.reconciliationStatus,
+          unitPrice: easysellSales.unitPrice,
+          totalPrice: easysellSales.totalPrice,
+          saleDate: easysellSales.saleDate,
         });
 
-      // Sortie de stock pour les ventes AUTO-réconciliées à l'import (mapping
-      // trouvé). Quantité nulle/≤0 ignorée.
+      // Vente interne pour les ventes AUTO-réconciliées à l'import (mapping
+      // trouvé) : c'est elle qui décrémente le stock. Quantité nulle/≤0 ignorée.
       for (const r of inserted) {
         if (
           r.reconciliationStatus === "reconciled" &&
@@ -134,12 +137,15 @@ export class EasySellSaleImportService {
           r.quantity !== null &&
           r.quantity > 0
         ) {
-          await this.stock.recordEasySellOut({
+          await this.sales.createFromEasySell({
             productId: r.productId,
             quantity: r.quantity,
             easysellSaleId: r.id,
+            unitPrice: r.unitPrice !== null ? Number(r.unitPrice) : null,
+            totalPrice: r.totalPrice !== null ? Number(r.totalPrice) : null,
+            saleDate: r.saleDate,
           });
-          stockOut++;
+          salesCreated++;
         }
       }
     }
@@ -150,7 +156,7 @@ export class EasySellSaleImportService {
       pending,
       skippedExisting,
       skippedNotDelivered,
-      stockOut,
+      salesCreated,
     };
   }
 }
