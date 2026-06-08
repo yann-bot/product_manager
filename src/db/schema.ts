@@ -18,3 +18,6 @@
 export * from "./schemas/easysell-order.schema";
 export * from "./schemas/app-settings.schema";
 export * from "./schemas/product.schema";
+export * from "./schemas/sales.schema";
+export * from "./schemas/easysell-sale.schema";
+export * from "./schemas/stock-movement.schema";

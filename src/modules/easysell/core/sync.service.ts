@@ -23,25 +23,39 @@ import { getSheetId } from "../../../shared/settings";
 // ======================================================
 //
 
-// Index des colonnes dans le Sheet.
+// Colonnes du Sheet EasySell — début TOUJOURS stable.
 const COL = {
   date: 0,
   orderId: 1,
   customerName: 2,
   phone: 3,
-  address: 4,
-  noteClient: 5,
-  productName: 6,
-  unitPrice: 7,
-  quantity: 8,
-  totalAmount: 9,
-  status: 10,
 } as const;
 
-// Lignes mal alignées : la colonne produit contient du bruit.
-const NOISE_PRODUCTS = new Set(["Dimanche", "Vendredi 22 mai 2026"]);
-
 const cell = (row: string[], i: number): string => (row[i] ?? "").trim();
+
+const isNumericCell = (raw: string): boolean =>
+  raw !== "" && /^\d+([.,]\d+)?$/.test(raw.replace(/\s/g, ""));
+
+// Le Sheet n'est PAS régulier ligne par ligne. La plupart des lignes ont
+// une colonne vide "spacer" sans en-tête en index 4 (présente aussi dans
+// l'en-tête : DATE, N°, NOM, TEL, "", ADRESSE, NOTE CLIENT, PRODUIT…),
+// mais certaines lignes l'omettent et décalent tout le bloc d'un cran à
+// gauche. On détecte le cas PAR LIGNE : en layout normal l'index 7 est le
+// NOM DU PRODUIT (texte) ; sans le spacer, l'index 7 est le PRIX UNITAIRE
+// (numérique). Le bloc adresse..note reste contigu, on le décale en bloc.
+function resolveCols(row: string[]) {
+  const shift = isNumericCell(cell(row, 7)) ? -1 : 0;
+  return {
+    address: 5 + shift,
+    noteClient: 6 + shift,
+    productName: 7 + shift,
+    unitPrice: 8 + shift,
+    quantity: 9 + shift,
+    totalAmount: 10 + shift,
+    status: 11 + shift,
+    note: 12 + shift,
+  };
+}
 
 // "2026-03-24 18:07:23" -> Date ; vide/invalide -> null.
 function parseDate(raw: string): Date | null {
@@ -95,15 +109,12 @@ export class EasySellSyncService {
 
     for (const row of rows.slice(1)) {
       const orderId = cell(row, COL.orderId);
-      const productName = cell(row, COL.productName);
+      const col = resolveCols(row);
+      const productName = cell(row, col.productName);
 
       // Lignes inexploitables : pas d'identifiant ou pas de produit.
       if (!orderId || !productName) {
         if (row.length > 0) skipped++;
-        continue;
-      }
-      if (NOISE_PRODUCTS.has(productName)) {
-        skipped++;
         continue;
       }
 
@@ -113,13 +124,14 @@ export class EasySellSyncService {
         dateHeure: parseDate(cell(row, COL.date)),
         nomComplet: cell(row, COL.customerName) || null,
         telephone: cell(row, COL.phone) || null,
-        adresse: cell(row, COL.address) || null,
-        noteClient: cell(row, COL.noteClient) || null,
+        adresse: cell(row, col.address) || null,
+        noteClient: cell(row, col.noteClient) || null,
         nomProduit: productName,
-        prixUnitaire: money(cell(row, COL.unitPrice)),
-        quantite: quantity(cell(row, COL.quantity)),
-        prixTotal: money(cell(row, COL.totalAmount)),
-        status: cell(row, COL.status) || null,
+        prixUnitaire: money(cell(row, col.unitPrice)),
+        quantite: quantity(cell(row, col.quantity)),
+        prixTotal: money(cell(row, col.totalAmount)),
+        status: cell(row, col.status) || null,
+        note: cell(row, col.note) || null,
         syncedAt: new Date(),
       });
     }
@@ -146,6 +158,7 @@ export class EasySellSyncService {
             quantite: sql`excluded.quantite`,
             prixTotal: sql`excluded.prix_total`,
             status: sql`excluded.status`,
+            note: sql`excluded.note`,
             syncedAt: sql`excluded.synced_at`,
           },
         });

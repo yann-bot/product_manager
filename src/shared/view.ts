@@ -14,7 +14,14 @@ import { renderToStaticMarkup } from "react-dom/server";
 //
 
 /** Clé de la section de navigation active (surligne l'onglet correspondant). */
-export type NavKey = "easysell-orders" | "products";
+export type NavKey =
+  | "dashboard"
+  | "easysell-orders"
+  | "products"
+  | "sales"
+  | "stock"
+  | "reconciliation"
+  | "analytics";
 
 export interface PageOptions {
   /** Titre de la page (<title> + <h1>). */

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { renderPage } from "./view";
 import { DashboardPage } from "./views/DashboardPage";
 import { getSheetId, getSheetUrl } from "./settings";
+import { loadDashboard } from "./dashboard.read";
 
 //
 // Route de la page principale du dashboard ("/").
@@ -9,7 +10,11 @@ import { getSheetId, getSheetUrl } from "./settings";
 const HomeRouter: Router = Router();
 
 HomeRouter.get("/", async (req, res) => {
-  const [sheetId, sheetUrl] = await Promise.all([getSheetId(), getSheetUrl()]);
+  const [sheetId, sheetUrl, data] = await Promise.all([
+    getSheetId(),
+    getSheetUrl(),
+    loadDashboard(),
+  ]);
 
   // Bannière de retour après configuration (?sheet=ok|err).
   const sheet = req.query.sheet;
@@ -26,9 +31,11 @@ HomeRouter.get("/", async (req, res) => {
 
   renderPage(res, {
     title: "Tableau de bord",
-    subtitle: "Vue d'ensemble du système",
+    subtitle: "Inventory Management — vue d'ensemble du système",
+    active: "dashboard",
     body: (
       <DashboardPage
+        data={data}
         sheetId={sheetId}
         sheetUrl={sheetUrl}
         serviceAccount={process.env.GOOGLE_CLIENT_EMAIL ?? null}

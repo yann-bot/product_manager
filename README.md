@@ -70,11 +70,11 @@ bun run src/main.ts         # démarre le serveur + le cron de synchronisation
 
 L'application est disponible sur <http://localhost:3000>.
 
-| Page | URL |
-| ---- | --- |
-| Tableau de bord (configurer la source Sheet) | `/` |
+| Page                                           | URL                     |
+| ---------------------------------------------- | ----------------------- |
+| Tableau de bord (configurer la source Sheet)   | `/`                     |
 | Commandes EasySell (table, filtre, pagination) | `/easysell-orders/view` |
-| Commandes EasySell (JSON) | `/easysell-orders` |
+| Commandes EasySell (JSON)                      | `/easysell-orders`      |
 
 Sur le tableau de bord, **colle le lien de ton Google Sheet** : l'ID est extrait, l'accès est vérifié, puis la synchronisation l'alimente automatiquement.
 
@@ -112,12 +112,12 @@ bunx tsx src/script/test-sheet.ts              # test de connexion au Sheet
 
 Structure **hexagonale**, un dossier par contexte sous `src/modules/<contexte>/` (à ce jour : `easysell-order`) :
 
-| Couche | Rôle |
-| ------ | ---- |
-| `core/` | Entités du domaine, ports (interfaces), services (cas d'usage). Contient aussi `sync.service.ts` (la logique d'import). |
-| `inbound/` | Contrôleur Express + vues React (`inbound/views/`). |
-| `outbound/` | Adaptateur Drizzle (implémente le port). |
-| `index.ts` | Câblage : `repo → service → routeur`. |
+| Couche      | Rôle                                                                                                                    |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `core/`     | Entités du domaine, ports (interfaces), services (cas d'usage). Contient aussi `sync.service.ts` (la logique d'import). |
+| `inbound/`  | Contrôleur Express + vues React (`inbound/views/`).                                                                     |
+| `outbound/` | Adaptateur Drizzle (implémente le port).                                                                                |
+| `index.ts`  | Câblage : `repo → service → routeur`.                                                                                   |
 
 Éléments transverses :
 
