@@ -39,10 +39,16 @@ const isNumericCell = (raw: string): boolean =>
 // Le Sheet n'est PAS régulier ligne par ligne. La plupart des lignes ont
 // une colonne vide "spacer" sans en-tête en index 4 (présente aussi dans
 // l'en-tête : DATE, N°, NOM, TEL, "", ADRESSE, NOTE CLIENT, PRODUIT…),
-// mais certaines lignes l'omettent et décalent tout le bloc d'un cran à
-// gauche. On détecte le cas PAR LIGNE : en layout normal l'index 7 est le
-// NOM DU PRODUIT (texte) ; sans le spacer, l'index 7 est le PRIX UNITAIRE
-// (numérique). Le bloc adresse..note reste contigu, on le décale en bloc.
+// mais certaines lignes l'omettent et décalent le bloc ADRESSE..TOTAL d'un
+// cran à gauche. On détecte le cas PAR LIGNE : en layout normal l'index 7
+// est le NOM DU PRODUIT (texte) ; sans le spacer, l'index 7 est le PRIX
+// UNITAIRE (numérique).
+//
+// ATTENTION : seul le bloc adresse..total se décale. EasySell écrit le
+// STATUT et la NOTE dans des colonnes FIXES (11 et 12) ; sur une ligne
+// décalée, le total tombe en 9 et un TROU apparaît en 10, mais le statut
+// reste en 11. Décaler le statut le ferait lire sur la colonne vide (→ null
+// → livraison perdue, bug constaté). Donc statut/note sont ANCRÉS.
 function resolveCols(row: string[]) {
   const shift = isNumericCell(cell(row, 7)) ? -1 : 0;
   return {
@@ -52,8 +58,8 @@ function resolveCols(row: string[]) {
     unitPrice: 8 + shift,
     quantity: 9 + shift,
     totalAmount: 10 + shift,
-    status: 11 + shift,
-    note: 12 + shift,
+    status: 11,
+    note: 12,
   };
 }
 
