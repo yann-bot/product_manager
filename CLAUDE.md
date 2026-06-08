@@ -6,7 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `product_system_manager` is the backend for a Senegalese e-commerce management system (money is FCFA; domain comments are in French). Runtime is **Bun**; HTTP via **Express 5**; persistence via **Drizzle ORM** on **PostgreSQL 16**; pages are **React 19 rendered to static HTML server-side** (no client JS) injected into an **EJS** shell.
 
-**Current scope is V1 = ingestion only.** The pipeline is: Google Sheet (EasySell) → raw rows imported into the `easysell_orders` staging table → displayed "as-is" on the dashboard. There is **no internal business logic** (no products, sales, stock, purchases, customers). An earlier design with all of those tables was deliberately removed — **do not reintroduce business tables/logic unless explicitly asked.**
+**Scope.** Two things live side by side:
+
+1. **EasySell ingestion** (the original V1): Google Sheet (EasySell) → raw rows imported into the `easysell_orders` staging table → displayed "as-is" on the dashboard.
+2. **Product module** (`modules/product/`): a real internal business context — the product catalog (full CRUD + archive), the first building block of the "OS Commerce" roadmap (see `E-COM-COFFRE/Produits.md`).
+
+Other business contexts (sales, stock, purchases, customers, reconciliation) are **still not built** — an earlier design with all of those tables was deliberately removed; **do not reintroduce those unless explicitly asked.** The product module is the exception that *was* asked for.
 
 ## Commands
 
@@ -43,13 +48,13 @@ Google access uses a **service account** (`lib/google-sheet.ts`, readonly scope)
 
 ## Architecture
 
-**Hexagonal, one folder per bounded context under `src/modules/<context>/`** (currently only `easysell-order`):
+**Hexagonal, one folder per bounded context under `src/modules/<context>/`** (`easysell-order`, `product`):
 - `core/` — `entities.ts` (domain interface + repository **port**) and `*.service.ts` (use-cases). Also holds `sync.service.ts` (the Sheet ingestion logic).
 - `inbound/` — Express controller (`*.rest.tsx`) + React views (`inbound/views/`).
 - `outbound/` — Drizzle adapter implementing the port (`*.postgres.ts`).
 - `index.ts` — manual wiring: `repo → service → controller(router)`, exported as the router.
 
-`src/main.ts` boots Express, mounts each router (`HomeRouter`, `SettingsRouter`, `EasySellOrderRouter`), sets EJS as the view engine, serves static assets as a fallback, then calls `startCrons()`.
+`src/main.ts` boots Express, mounts each router (`HomeRouter`, `SettingsRouter`, `EasySellOrderRouter`, `ProductRouter`), sets EJS as the view engine, serves static assets as a fallback, then calls `startCrons()`.
 
 Key design decisions:
 
@@ -71,9 +76,14 @@ Key design decisions:
 
 Routes: `GET /` (dashboard), `POST /settings/google-sheet` (connect a Sheet), `GET /easysell-orders` (JSON), `GET /easysell-orders/view` (HTML table).
 
+Product module routes (`modules/product/inbound/product.rest.tsx`) come in two families on the same `ProductService`:
+
+- **JSON REST:** `GET/POST /products`, `GET/PATCH/DELETE /products/:id` (`DELETE` = archive, never a hard delete — RM-04).
+- **HTML screens:** `GET /products/view` (list, `?status=all|active|archived`), `GET|POST /products/new` (create), `GET /products/:id/view` (detail), `GET|POST /products/:id/edit` (update), `POST /products/:id/archive`. Forms post `urlencoded`; zod (`z.coerce`/`preprocess`) normalizes the string inputs. Business rules (RM-01 name required, RM-02 sellingPrice > 0, default status `active`) live in `product.service.ts`; the DB column also defaults `status` to `'active'` via `DEFAULT_PRODUCT_STATUS`.
+
 ### File notes
 
-- `src/db/schema.ts` — the 2 tables (`easysell_orders`, `app_settings`). Editing this drives migrations.
+- `src/db/schema.ts` — **barrel only**: re-exports every schema; defines no table itself. This is the single aggregation point Drizzle reads (`drizzle.config.ts` + `db/client.ts`), so editing the re-exported files drives migrations. **Schema separation rule:** all schemas are centralized under `src/db/schemas/`, **one file per module/topic** (`<topic>.schema.ts`), never mixed. Never define a table in the barrel. To add a table: create/edit `src/db/schemas/<topic>.schema.ts` then re-export it from `db/schema.ts`. Today: `easysell_orders` → `db/schemas/easysell-order.schema.ts`; `app_settings` → `db/schemas/app-settings.schema.ts`.
 - `src/db/client.ts` — the shared Drizzle client (`db`); import this from adapters/scripts.
 - `src/db/index.ts` — despite the name, this is the **seed script**, not the client. Re-runnable; wipes `easysell_orders` first.
 - `src/shared/` — cross-cutting: `view.ts` (SSR bridge), `home.tsx` (dashboard `/`), `settings.ts` + `settings.rest.ts` (Sheet config), `scheduler.ts` (cron), `errors.ts` (domain errors + FK-violation detection), `format.ts`, `validate.ts` (zod body validation), `views/` (EJS layout + dashboard component).

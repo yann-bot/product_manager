@@ -1,6 +1,6 @@
 import { eq, like } from "drizzle-orm";
 import { db } from "../db/client";
-import { appSettings } from "../db/schema";
+import { appSettings } from "../db/schemas/app-settings.schema";
 
 //
 // Réglages applicatifs (clé/valeur en base), configurables depuis l'UI.

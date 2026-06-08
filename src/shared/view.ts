@@ -14,7 +14,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 //
 
 /** Clé de la section de navigation active (surligne l'onglet correspondant). */
-export type NavKey = "easysell-orders";
+export type NavKey = "easysell-orders" | "products";
 
 export interface PageOptions {
   /** Titre de la page (<title> + <h1>). */

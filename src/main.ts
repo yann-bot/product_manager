@@ -6,6 +6,7 @@ import { startCrons } from "./shared/scheduler";
 import HomeRouter from "./shared/home";
 import SettingsRouter from "./shared/settings.rest";
 import EasySellOrderRouter from "./modules/easysell-order";
+import ProductRouter from "./modules/product";
 
 const app = express();
 app.use(express.json());
@@ -22,6 +23,7 @@ app.set("views", path.join(rootDir, "src/shared/views"));
 app.use(HomeRouter);
 app.use(SettingsRouter);
 app.use(EasySellOrderRouter);
+app.use(ProductRouter);
 
 // Repli statique : assets + ancienne UI de test accessible via /index.html.
 // `index: false` pour ne pas court-circuiter la route "/" du dashboard.

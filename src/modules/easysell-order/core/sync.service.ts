@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { sheets } from "../../../lib/google-sheet";
 import { db } from "../../../db/client";
-import { easysellOrders } from "../../../db/schema";
+import { easysellOrders } from "../../../db/schemas/easysell-order.schema";
 import { getSheetId } from "../../../shared/settings";
 
 //
