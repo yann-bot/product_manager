@@ -1,14 +1,15 @@
 //
-// Page d'accueil ("/") — tableau de bord « Inventory Management ».
-// KPIs + graphiques SVG (rendus serveur, sans JS) adossés à de vraies
-// données ; suivis de la configuration de la source Google Sheet
-// (fonctionnalité conservée, déplacée en bas de page).
+// Page d'accueil ("/") — « Vue d'ensemble » restylée d'après la maquette
+// Coinview (sidebar sombre + carte portfolio + cartes pastel + table marché
+// + carte sombre). Seul le VISUEL est repris : les libellés et les chiffres
+// restent ceux du domaine réel (CA en FCFA, KPIs produits/stock/commandes,
+// top produits). Tout est rendu serveur en SVG, sans JS client.
 //
 
 import type { ReactNode } from "react";
 import type { DashboardData } from "../dashboard.read";
-import { compact, compactMoney, percent } from "../format";
-import { Donut, HBars, AreaTrend } from "./charts";
+import { compact, compactMoney, money, percent } from "../format";
+import { AreaTrend } from "./charts";
 
 interface DashboardPageProps {
   data: DashboardData;
@@ -18,8 +19,9 @@ interface DashboardPageProps {
   status: { kind: "ok" | "err"; message: string } | null;
 }
 
-const SOLD_COLOR = "#5b8aa6";
-const STOCK_COLOR = "#9fc1cf";
+// Pastilles de plage temporelle (décoratives) : la série couvre 6 mois.
+const RANGES = ["1M", "3M", "6M", "1A", "Max"];
+const ACTIVE_RANGE = "6M";
 
 export function DashboardPage({
   data,
@@ -29,11 +31,17 @@ export function DashboardPage({
   status,
 }: DashboardPageProps) {
   const connected = Boolean(sheetId);
-  const { kpi, inventory, topProducts, monthlyRevenue } = data;
+  const { kpi, topProducts, monthlyRevenue } = data;
 
-  const invTotal = inventory.soldUnits + inventory.inStockUnits;
-  const soldRatio = invTotal > 0 ? inventory.soldUnits / invTotal : 0;
-  const stockRatio = invTotal > 0 ? inventory.inStockUnits / invTotal : 0;
+  const totalRevenue = monthlyRevenue.reduce((s, m) => s + m.revenue, 0);
+
+  // « Change » du portfolio = variation du dernier mois vs le précédent.
+  const last = monthlyRevenue.at(-1)?.revenue ?? 0;
+  const prev = monthlyRevenue.at(-2)?.revenue ?? 0;
+  const delta = prev > 0 ? (last - prev) / prev : null;
+
+  // Part de chaque top produit dans le CA cumulé du top (colonne « change »).
+  const topTotal = topProducts.reduce((s, p) => s + p.revenue, 0);
 
   return (
     <div className="dash">
@@ -43,147 +51,188 @@ export function DashboardPage({
         </div>
       )}
 
-      {/* ---- Vue d'ensemble : 4 KPI réels ---- */}
-      <div className="section-h">Vue d'ensemble</div>
-      <div className="kpis">
-        <Kpi icon="📦" tone="blue" value={compact(kpi.totalProducts)} label="Produits actifs" />
-        <Kpi icon="🛒" tone="green" value={compact(kpi.ordersCount)} label="Commandes EasySell" />
-        <Kpi icon="🗃️" tone="violet" value={compact(kpi.totalStock)} label="Stock total (unités)" />
-        <Kpi icon="⚠️" tone="amber" value={compact(kpi.outOfStock)} label="En rupture" />
+      <h2 className="ov-title">Vue d'ensemble</h2>
+
+      {/* ---- Portfolio (CA) + cartes KPI pastel ---- */}
+      <div className="ov-top">
+        <section className="portfolio">
+          <div className="pf-h">Chiffre d'affaires</div>
+          <div className="pf-bal">
+            {money(totalRevenue)}
+            {delta !== null && (
+              <span
+                className="pf-pill"
+                style={delta < 0 ? { background: "#fdecec", color: "#c0504f" } : undefined}
+              >
+                {delta >= 0 ? "+" : ""}
+                {percent(delta)}
+              </span>
+            )}
+          </div>
+          <div className="pf-sub">Commandes livrées · 6 derniers mois</div>
+          <div className="pf-chart">
+            <AreaTrend
+              width={560}
+              height={180}
+              color="#5c7cfa"
+              points={monthlyRevenue.map((m) => ({ label: m.label, value: m.revenue }))}
+              format={compactMoney}
+            />
+          </div>
+          <div className="pf-range">
+            {RANGES.map((r) => (
+              <span key={r} className={r === ACTIVE_RANGE ? "on" : ""}>
+                {r}
+              </span>
+            ))}
+          </div>
+        </section>
+
+        <div className="assets">
+          <Asset
+            tone="lav"
+            value={compact(kpi.totalProducts)}
+            label="Produits au catalogue"
+            icon="📦"
+            delta="actifs"
+            deltaTone="muted"
+          />
+          <Asset
+            tone="mint"
+            value={compact(kpi.ordersCount)}
+            label="Commandes EasySell"
+            icon="🛒"
+            delta="synchronisées"
+            deltaTone="muted"
+          />
+          <Asset
+            tone="cream"
+            value={`${compact(kpi.totalStock)} u.`}
+            label="Stock total"
+            icon="🗃️"
+            delta={
+              kpi.outOfStock > 0 ? `${compact(kpi.outOfStock)} en rupture` : "0 rupture"
+            }
+            deltaTone={kpi.outOfStock > 0 ? "amber" : "pos"}
+          />
+        </div>
       </div>
 
-      {/* ---- Graphiques ---- */}
-      <div className="panels">
-        <div className="panel">
-          <div className="panel-h">Valeurs d'inventaire</div>
-          {invTotal === 0 ? (
-            <Empty>Aucun mouvement de stock.</Empty>
-          ) : (
-            <div className="donut-row">
-              <Donut
-                segments={[
-                  { label: "Vendues", value: inventory.soldUnits, color: SOLD_COLOR },
-                  { label: "En stock", value: inventory.inStockUnits, color: STOCK_COLOR },
-                ]}
-                centerLabel={compact(invTotal)}
-                centerSub="unités"
-              />
-              <ul className="legend">
-                <li>
-                  <span className="dot" style={{ background: SOLD_COLOR }} />
-                  Unités vendues
-                  <b>{percent(soldRatio)}</b>
-                  <span className="muted">{compact(inventory.soldUnits)}</span>
-                </li>
-                <li>
-                  <span className="dot" style={{ background: STOCK_COLOR }} />
-                  Unités en stock
-                  <b>{percent(stockRatio)}</b>
-                  <span className="muted">{compact(inventory.inStockUnits)}</span>
-                </li>
-              </ul>
-            </div>
-          )}
-        </div>
-
-        <div className="panel">
-          <div className="panel-h">
-            Top produits par CA
-            <span className="panel-tag">ventes + réconciliations</span>
-          </div>
+      {/* ---- Table « marché » (top produits) + carte source ---- */}
+      <div className="ov-bottom">
+        <section className="market">
+          <div className="mk-h">Top produits par chiffre d'affaires</div>
           {topProducts.length === 0 ? (
             <Empty>Aucune vente enregistrée pour l'instant.</Empty>
           ) : (
-            <HBars
-              items={topProducts.map((p) => ({ label: p.name, value: p.revenue }))}
-              format={compactMoney}
+            <table className="mk-table">
+              <thead>
+                <tr>
+                  <th>Produit</th>
+                  <th className="num">Chiffre d'affaires</th>
+                  <th className="num">Part</th>
+                </tr>
+              </thead>
+              <tbody>
+                {topProducts.map((p) => {
+                  const share = topTotal > 0 ? p.revenue / topTotal : 0;
+                  return (
+                    <tr key={p.name}>
+                      <td>
+                        <div className="mk-name">
+                          <span className="mk-badge">{initials(p.name)}</span>
+                          <span>
+                            <b>{p.name}</b>
+                          </span>
+                        </div>
+                      </td>
+                      <td className="num">{compactMoney(p.revenue)}</td>
+                      <td className="num mk-pos">{percent(share)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </section>
+
+        {/* Carte sombre (ex-promo) -> connexion de la source Google Sheet. */}
+        <aside className="promo">
+          <h3>
+            Source <span className="pin">EasySell</span> Google&nbsp;Sheet
+          </h3>
+          <div className={connected ? "promo-status on" : "promo-status off"}>
+            {connected ? "● Source connectée" : "○ Non configurée"}
+          </div>
+          {connected && sheetId && (
+            <p>
+              Sheet&nbsp;: <span className="ref">{sheetId}</span>
+            </p>
+          )}
+          {!connected && (
+            <p>
+              Connectez le Google Sheet EasySell pour démarrer la synchronisation
+              automatique des commandes.
+            </p>
+          )}
+          <form method="post" action="/settings/google-sheet">
+            <input
+              id="url"
+              name="url"
+              type="url"
+              defaultValue={sheetUrl ?? ""}
+              placeholder="https://docs.google.com/spreadsheets/d/…/edit"
+              required
             />
+            <button type="submit" className="promo-btn">
+              {connected ? "Mettre à jour" : "Connecter le Sheet"}
+            </button>
+          </form>
+          {serviceAccount && (
+            <p style={{ marginTop: 12, marginBottom: 0 }}>
+              Partagez d'abord le Sheet (lecture) avec{" "}
+              <span className="ref">{serviceAccount}</span>.
+            </p>
           )}
-        </div>
-
-        <div className="panel panel-wide">
-          <div className="panel-h">
-            Chiffre d'affaires
-            <span className="panel-tag">commandes livrées · 6 mois</span>
-          </div>
-          <AreaTrend
-            width={620}
-            points={monthlyRevenue.map((m) => ({ label: m.label, value: m.revenue }))}
-            format={compactMoney}
-          />
-        </div>
-      </div>
-
-      {/* ---- Source de données (config Google Sheet, conservée) ---- */}
-      <div className="section-h">Source de données</div>
-      <div className="panel source-panel">
-        <div className="cards" style={{ padding: 0, marginBottom: 14 }}>
-          <div className="card">
-            <div className="k">Source Google Sheet</div>
-            <div className={connected ? "v accent" : "v"}>
-              {connected ? "Connectée" : "Non configurée"}
-            </div>
-          </div>
-          {connected && (
-            <div className="card">
-              <div className="k">Sheet ID</div>
-              <div className="v" style={{ fontSize: 13 }}>
-                <span className="ref">{sheetId}</span>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <form method="post" action="/settings/google-sheet" style={{ maxWidth: 560 }}>
-          <label htmlFor="url" className="muted">
-            Lien du Google Sheet EasySell
-          </label>
-          <input
-            id="url"
-            name="url"
-            className="filter"
-            type="url"
-            defaultValue={sheetUrl ?? ""}
-            placeholder="https://docs.google.com/spreadsheets/d/…/edit"
-            style={{ maxWidth: "100%", marginTop: 6 }}
-            required
-          />
-          <button type="submit" className="btn btn-primary" style={{ marginTop: 12 }}>
-            {connected ? "Mettre à jour la source" : "Connecter le Sheet"}
-          </button>
-        </form>
-
-        {serviceAccount && (
-          <p className="muted" style={{ marginTop: 14, maxWidth: 560 }}>
-            Pensez à partager le Sheet (lecture) avec le compte de service{" "}
-            <span className="ref">{serviceAccount}</span> avant de le connecter.
-          </p>
-        )}
+        </aside>
       </div>
     </div>
   );
 }
 
-function Kpi({
-  icon,
+function Asset({
   tone,
   value,
   label,
+  icon,
+  delta,
+  deltaTone,
 }: {
-  icon: string;
-  tone: string;
+  tone: "lav" | "mint" | "cream";
   value: string;
   label: string;
+  icon: string;
+  delta: string;
+  deltaTone: "pos" | "amber" | "muted";
 }) {
   return (
-    <div className="kpi">
-      <span className={`kpi-ic kpi-${tone}`}>{icon}</span>
-      <div>
-        <div className="kpi-v">{value}</div>
-        <div className="kpi-l">{label}</div>
+    <div className={`asset ${tone}`}>
+      <div className="asset-v">{value}</div>
+      <div className="asset-l">{label}</div>
+      <div className="asset-foot">
+        <span className="asset-ic">{icon}</span>
+        <span className={`asset-delta ${deltaTone}`}>{delta}</span>
       </div>
     </div>
   );
+}
+
+/** Monogramme (1-2 lettres) pour la pastille produit de la table marché. */
+function initials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "—";
+  if (words.length === 1) return words[0]!.slice(0, 2).toUpperCase();
+  return (words[0]![0]! + words[1]![0]!).toUpperCase();
 }
 
 function Empty({ children }: { children: ReactNode }) {
