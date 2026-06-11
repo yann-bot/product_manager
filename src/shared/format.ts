@@ -19,6 +19,20 @@ const dateTimeFmt = new Intl.DateTimeFormat("fr-FR", {
 export const formatDateTime = (d: Date | null): string =>
   d ? dateTimeFmt.format(new Date(d)) : "—";
 
+const dateFmt = new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium" });
+
+/** Date seule (sans heure), ou « — » si absente. */
+export const formatDate = (d: Date | null): string =>
+  d ? dateFmt.format(new Date(d)) : "—";
+
+const monthFmt = new Intl.DateTimeFormat("fr-FR", {
+  month: "long",
+  year: "numeric",
+});
+
+/** Mois + année (ex. « mars 2026 »). */
+export const formatMonth = (d: Date): string => monthFmt.format(new Date(d));
+
 const percentFmt = new Intl.NumberFormat("fr-FR", {
   style: "percent",
   maximumFractionDigits: 1,
