@@ -3,13 +3,41 @@ import { money, formatDateTime } from "../../../../shared/format";
 
 export type SaleStatusFilter = "all" | "completed" | "cancelled";
 
+// Préréglage calendaire (heure locale serveur) : « Tout » (pas de borne),
+// le mois en cours, la semaine en cours (lundi→) ou aujourd'hui.
+export type SalePeriod = "all" | "day" | "week" | "month";
+
+// Comment la fenêtre temporelle a été choisie : un préréglage (onglets),
+// un mois précis (sélecteur), ou un intervalle de dates personnalisé.
+export type DateMode = "preset" | "month" | "interval";
+
+/**
+ * Fenêtre temporelle active de la page, déjà résolue côté controller. La
+ * vue n'en lit que des chaînes (pré-remplissage des champs + surlignage) ;
+ * le calcul des bornes Date et le filtrage restent côté controller.
+ */
+export interface DateScope {
+  mode: DateMode;
+  /** Préréglage actif quand mode === "preset". */
+  period: SalePeriod;
+  /** « YYYY-MM » pré-rempli du sélecteur de mois (mode "month"). */
+  month: string;
+  /** « YYYY-MM-DD » pré-remplis de l'intervalle (mode "interval"). */
+  from: string;
+  to: string;
+  /** Libellé lisible de la fenêtre affichée (ex. « mars 2026 »). */
+  label: string;
+}
+
 interface SalesPageProps {
   sales: Sale[];
   /** Filtre de statut courant (onglet « Toutes / Complétées / Annulées »). */
   filter: SaleStatusFilter;
-  /** Compteurs tous statuts confondus (indépendants du filtre). */
+  /** Fenêtre temporelle active (préréglage, mois précis ou intervalle). */
+  scope: DateScope;
+  /** Compteurs sur la fenêtre sélectionnée (indépendants du filtre statut). */
   counts: { all: number; completed: number; cancelled: number };
-  /** Chiffre d'affaires = Σ montants des ventes complétées (RM-06). */
+  /** Chiffre d'affaires de la fenêtre = Σ montants des ventes complétées (RM-06). */
   revenue: number;
   /** Nom produit par id (jointure faite côté controller, vue pure). */
   productNameById: Record<string, string>;
@@ -21,8 +49,33 @@ const TABS: { key: SaleStatusFilter; label: string }[] = [
   { key: "cancelled", label: "Annulées" },
 ];
 
+const PERIODS: { key: SalePeriod; label: string }[] = [
+  { key: "all", label: "Tout" },
+  { key: "month", label: "Ce mois-ci" },
+  { key: "week", label: "Cette semaine" },
+  { key: "day", label: "Aujourd'hui" },
+];
+
 /** UC-02 — Liste des ventes (CA, filtre statut, recherche, pagination). */
-export function SalesPage({ sales, filter, counts, revenue, productNameById }: SalesPageProps) {
+export function SalesPage({ sales, filter, scope, counts, revenue, productNameById }: SalesPageProps) {
+  // Query string de la fenêtre temporelle active : on la reconduit sur les
+  // liens de statut pour ne pas perdre la sélection de dates (statut et
+  // fenêtre sont orthogonaux). Seuls les params du mode actif sont émis.
+  const dateQuery = () => {
+    const p = new URLSearchParams();
+    if (scope.mode === "month") p.set("month", scope.month);
+    else if (scope.mode === "interval") {
+      if (scope.from) p.set("from", scope.from);
+      if (scope.to) p.set("to", scope.to);
+    } else p.set("period", scope.period);
+    return p.toString();
+  };
+  // Lien d'un onglet de statut : conserve la fenêtre temporelle courante.
+  const statusHref = (s: SaleStatusFilter) => `/sales/view?status=${s}&${dateQuery()}`;
+  // Lien d'un préréglage : conserve le statut, repasse en mode "preset".
+  const presetHref = (per: SalePeriod) => `/sales/view?status=${filter}&period=${per}`;
+  const isPreset = scope.mode === "preset";
+
   return (
     <>
       <div className="cards">
@@ -45,12 +98,54 @@ export function SalesPage({ sales, filter, counts, revenue, productNameById }: S
       </div>
 
       <div className="wrap">
+        <div className="datebar">
+          <div className="nav">
+            {PERIODS.map((p) => (
+              <a
+                key={p.key}
+                href={presetHref(p.key)}
+                className={isPreset && scope.period === p.key ? "active" : ""}
+              >
+                {p.label}
+              </a>
+            ))}
+          </div>
+
+          {/* Mois précis : ?month=YYYY-MM. */}
+          <form className="datefilter" method="get" action="/sales/view">
+            <input type="hidden" name="status" defaultValue={filter} />
+            <label>
+              Mois
+              <input type="month" name="month" defaultValue={scope.month} />
+            </label>
+            <button className="btn" type="submit">Voir</button>
+          </form>
+
+          {/* Intervalle personnalisé : ?from=YYYY-MM-DD&to=YYYY-MM-DD. */}
+          <form className="datefilter" method="get" action="/sales/view">
+            <input type="hidden" name="status" defaultValue={filter} />
+            <label>
+              Du
+              <input type="date" name="from" defaultValue={scope.from} />
+            </label>
+            <label>
+              au
+              <input type="date" name="to" defaultValue={scope.to} />
+            </label>
+            <button className="btn" type="submit">Appliquer</button>
+          </form>
+        </div>
+
+        <div className="datebar-label muted">
+          Fenêtre affichée : <strong>{scope.label}</strong>
+        </div>
+
         <div className="toolbar">
           <div className="nav">
             {TABS.map((t) => (
               <a
                 key={t.key}
-                href={`/sales/view?status=${t.key}`}
+                href={statusHref(t.key)}
                 className={filter === t.key ? "active" : ""}
               >
                 {t.label}

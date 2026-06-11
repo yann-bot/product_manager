@@ -165,6 +165,14 @@
   .nav .brand { font-weight:600; border:none; background:none; padding-left:0; padding-right:14px; font-size:15px; }
   .toolbar { display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap; margin-bottom:14px; }
   .toolbar .nav { margin-bottom:0; }
+  /* Barre de filtres par dates : préréglages + mois précis + intervalle. */
+  .datebar { display:flex; gap:12px 20px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
+  .datebar .nav { margin-bottom:0; }
+  .datefilter { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .datefilter label { display:flex; align-items:center; gap:6px; font-size:13px; color:var(--muted); }
+  .datefilter input[type=month], .datefilter input[type=date] { padding:7px 10px; background:var(--card); border:1px solid var(--line); border-radius:8px; color:var(--txt); font:inherit; font-size:13px; }
+  .datefilter input:focus { outline:none; border-color:var(--accent); }
+  .datebar-label { font-size:12.5px; margin-bottom:16px; }
   a.link { color:var(--accent); text-decoration:none; }
   a.link:hover { text-decoration:underline; }
   .btn { display:inline-block; border:1px solid var(--line); background:var(--card); color:var(--txt); border-radius:8px; padding:8px 14px; font-size:13px; text-decoration:none; cursor:pointer; transition:border-color .15s,color .15s,background .15s; }
