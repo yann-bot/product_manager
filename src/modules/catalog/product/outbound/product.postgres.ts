@@ -26,7 +26,7 @@ function toEntity(row: Row): Product {
     name: row.name,
     description: row.description,
     sellingPrice: toNumber(row.sellingPrice),
-    costPrice: toNumber(row.costPrice),
+    defaultCostPrice: toNumber(row.defaultCostPrice),
     status: row.status as Product["status"],
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -60,7 +60,7 @@ export class ProductPostgresRepository implements ProductRepository {
         name: product.name,
         description: product.description ?? null,
         sellingPrice: toMoney(product.sellingPrice),
-        costPrice: toMoney(product.costPrice),
+        defaultCostPrice: toMoney(product.defaultCostPrice),
         status: product.status ?? DEFAULT_PRODUCT_STATUS,
       })
       .returning();
@@ -76,8 +76,8 @@ export class ProductPostgresRepository implements ProductRepository {
       values.description = updates.description ?? null;
     if (updates.sellingPrice !== undefined)
       values.sellingPrice = toMoney(updates.sellingPrice);
-    if (updates.costPrice !== undefined)
-      values.costPrice = toMoney(updates.costPrice);
+    if (updates.defaultCostPrice !== undefined)
+      values.defaultCostPrice = toMoney(updates.defaultCostPrice);
     if (updates.status !== undefined) values.status = updates.status;
 
     // Rien à modifier : on renvoie l'état courant (404 si absent).

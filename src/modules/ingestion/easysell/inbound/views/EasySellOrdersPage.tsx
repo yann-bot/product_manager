@@ -1,6 +1,8 @@
 import type { EasySellOrder } from "../../core/entities";
 import { money, formatDateTime } from "../../../../../shared/format";
 import { shortSheetId } from "../../../../../shared/settings";
+import type { DateScope } from "../../../../../shared/date-scope";
+import { DateFilterBar } from "../../../../../shared/views/DateFilterBar";
 
 interface EasySellOrdersPageProps {
   orders: EasySellOrder[];
@@ -8,6 +10,8 @@ interface EasySellOrdersPageProps {
   sheetNames: Record<string, string>;
   /** Sheet actuellement synchronisé (mis en évidence). */
   activeSheetId: string | null;
+  /** Fenêtre temporelle active (filtre par date_heure). */
+  scope: DateScope;
 }
 
 const dash = (v: string | number | null | undefined) =>
@@ -18,6 +22,7 @@ export function EasySellOrdersPage({
   orders,
   sheetNames,
   activeSheetId,
+  scope,
 }: EasySellOrdersPageProps) {
   const totalQty = orders.reduce((s, o) => s + (o.quantite ?? 0), 0);
   const statuses = new Set(orders.map((o) => o.status ?? "—")).size;
@@ -48,6 +53,8 @@ export function EasySellOrdersPage({
       </div>
 
       <div className="wrap">
+        <DateFilterBar scope={scope} action="/easysell-orders/view" />
+
         <input
           className="filter"
           type="search"
@@ -55,7 +62,7 @@ export function EasySellOrdersPage({
           placeholder="Filtrer (client, produit, statut, téléphone…)"
           autoComplete="off"
         />
-        <table id="easysell-orders-table" data-page-size="10">
+        <table id="easysell-orders-table" data-page-size="5">
           <thead>
             <tr>
               <th>Source</th>

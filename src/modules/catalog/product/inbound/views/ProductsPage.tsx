@@ -12,8 +12,8 @@ interface ProductsPageProps {
 }
 
 const margin = (p: Product): number | null =>
-  p.sellingPrice !== null && p.costPrice !== null
-    ? p.sellingPrice - p.costPrice
+  p.sellingPrice !== null && p.defaultCostPrice !== null
+    ? p.sellingPrice - p.defaultCostPrice
     : null;
 
 const TABS: { key: StatusFilter; label: string }[] = [
@@ -71,7 +71,7 @@ export function ProductsPage({ products, filter, counts }: ProductsPageProps) {
             <tr>
               <th>Nom</th>
               <th className="num">Prix de vente</th>
-              <th className="num">Prix de revient</th>
+              <th className="num">Prix de revient (défaut)</th>
               <th className="num">Marge brute</th>
               <th>Statut</th>
               <th></th>
@@ -88,7 +88,7 @@ export function ProductsPage({ products, filter, counts }: ProductsPageProps) {
                       {p.sellingPrice !== null ? money(p.sellingPrice) : "—"}
                     </td>
                     <td className="num">
-                      {p.costPrice !== null ? money(p.costPrice) : "—"}
+                      {p.defaultCostPrice !== null ? money(p.defaultCostPrice) : "—"}
                     </td>
                     <td className="num">{m !== null ? money(m) : "—"}</td>
                     <td>

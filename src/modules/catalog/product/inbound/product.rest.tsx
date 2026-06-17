@@ -35,9 +35,9 @@ const createSchema = z.object({
       .number({ error: "Le prix de vente est obligatoire." })
       .positive("Le prix de vente doit être supérieur à zéro."),
   ),
-  costPrice: z.preprocess(
+  defaultCostPrice: z.preprocess(
     emptyToUndefined,
-    z.coerce.number().nonnegative("Le prix de revient ne peut pas être négatif.").optional(),
+    z.coerce.number().nonnegative("Le prix de revient par défaut ne peut pas être négatif.").optional(),
   ),
   status: z.preprocess(emptyToUndefined, statusEnum.optional()),
 });
@@ -46,7 +46,7 @@ const updateSchema = z.object({
   name: z.preprocess(emptyToUndefined, z.string().trim().min(1).optional()),
   description: z.preprocess(emptyToUndefined, z.string().trim().optional()),
   sellingPrice: z.preprocess(emptyToUndefined, z.coerce.number().positive().optional()),
-  costPrice: z.preprocess(emptyToUndefined, z.coerce.number().nonnegative().optional()),
+  defaultCostPrice: z.preprocess(emptyToUndefined, z.coerce.number().nonnegative().optional()),
   status: z.preprocess(emptyToUndefined, statusEnum.optional()),
 });
 

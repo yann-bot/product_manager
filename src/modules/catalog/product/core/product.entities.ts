@@ -5,7 +5,12 @@ export type Product = {
   name: string;
   description: string | null;
   sellingPrice: number | null;
-  costPrice: number | null;
+  // Coût de revient PAR DÉFAUT (repli), pas le prix d'achat de référence :
+  // le vrai coût d'un produit vit par lot sur stock_movements.unit_cost et
+  // est rejoué en FIFO (module costing). Ce champ ne sert que de repli — coût
+  // d'une vente à découvert (aucun lot) et pré-remplissage d'une entrée de
+  // stock sans coût saisi. Mappé sur la colonne `cost_price` (inchangée).
+  defaultCostPrice: number | null;
   status: "active" | "archived";
   createdAt: Date;
   updatedAt: Date;
@@ -21,7 +26,7 @@ export type CreateProductDTO = {
   name: string;
   description?: string;
   sellingPrice?: number;
-  costPrice?: number;
+  defaultCostPrice?: number;
   // Optionnel : si absent, vaut DEFAULT_PRODUCT_STATUS ("active").
   status?: "active" | "archived";
 };

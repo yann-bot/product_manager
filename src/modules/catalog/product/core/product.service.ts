@@ -38,13 +38,13 @@ export class ProductService {
   create(input: CreateProductDTO): Promise<Product> {
     const name = requireName(input.name);
     const sellingPrice = requireSellingPrice(input.sellingPrice);
-    const costPrice = checkCostPrice(input.costPrice);
+    const defaultCostPrice = checkDefaultCostPrice(input.defaultCostPrice);
 
     return this.repo.create({
       name,
       description: input.description?.trim() || undefined,
       sellingPrice,
-      costPrice,
+      defaultCostPrice,
       status: input.status ?? DEFAULT_PRODUCT_STATUS,
     });
   }
@@ -56,8 +56,8 @@ export class ProductService {
     if (updates.name !== undefined) clean.name = requireName(updates.name);
     if (updates.sellingPrice !== undefined)
       clean.sellingPrice = requireSellingPrice(updates.sellingPrice);
-    if (updates.costPrice !== undefined)
-      clean.costPrice = checkCostPrice(updates.costPrice);
+    if (updates.defaultCostPrice !== undefined)
+      clean.defaultCostPrice = checkDefaultCostPrice(updates.defaultCostPrice);
     if (updates.description !== undefined)
       clean.description = updates.description?.trim() || undefined;
 
@@ -86,9 +86,10 @@ function requireSellingPrice(price: number | undefined): number {
   return price;
 }
 
-function checkCostPrice(price: number | undefined): number | undefined {
+function checkDefaultCostPrice(price: number | undefined): number | undefined {
   if (price === undefined) return undefined;
   if (Number.isNaN(price) || price < 0)
-    throw new ValidationError("Le prix de revient ne peut pas être négatif.");
+    throw new ValidationError("Le prix de revient par défaut ne peut pas être négatif.");
   return price;
 }
+

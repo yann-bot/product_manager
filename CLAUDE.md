@@ -113,7 +113,7 @@ Key design decisions:
 
 - **Analytics is compute-on-read (`analytics.service.ts`).** No stored aggregates; raw status counts are folded into canonical buckets via `classifyStatus`. `NOISE` and `UNKNOWN` are excluded from indicators (RM-04). The dashboard read (`shared/dashboard.read.ts`) is a separate, transverse read-only SQL view ("only real data": products, stock, orders, sales).
 
-- **React SSR ↔ EJS bridge** (`shared/view.ts → renderPage`): each page body is a React component rendered with `renderToStaticMarkup` (no hydration, no client JS) injected into `shared/views/layout.ejs`. `NavKey` enumerates the nav tabs: `dashboard`, `easysell-orders`, `products`, `sales`, `stock`, `reconciliation`, `analytics`, `costing`.
+- **React SSR ↔ EJS bridge** (`shared/view.tsx → renderPage`): each page body **and the chrome** (sidebar + topbar) are React components rendered with `renderToStaticMarkup` (no hydration, no client JS); `renderPage` injects all three (`sidebar`, `topbar`, `body`) into the thin shell `shared/views/layout.ejs` (which now holds only CSS, structure, and the client table script). `NavKey` enumerates the nav tabs: `dashboard`, `easysell-orders`, `products`, `sales`, `stock`, `reconciliation`, `analytics`, `costing`, `settings`. `shared/views/Sidebar.tsx` owns the nav: items grouped under collapsible `<details>` parents (Produits&Stock, Ventes, Reporting) — the group containing the active key is auto-opened; no client JS. **Icons are `react-icons` (Feather, `react-icons/fi`)** rendered to inline SVG server-side — no emoji in the UI.
 
 - **Money is `numeric(12,2)` and surfaces as a `string`** through Drizzle. Keep money as strings at the persistence boundary (sync, seed); the outbound adapter converts to `number` only when building domain entities. Display formatting (FCFA, fr-FR) lives in `shared/format.ts`.
 
@@ -121,13 +121,13 @@ Key design decisions:
 
 ### Routes
 
-- **Shared:** `GET /` (dashboard), `POST /settings/google-sheet` (connect a Sheet).
-- **EasySell:** `GET /easysell-orders` (JSON), `GET /easysell-orders/view` (HTML).
+- **Shared:** `GET /` (dashboard), `GET /settings/view` (settings page), `POST /settings/google-sheet` (connect a Sheet; redirects back to `?redirect=` or `/`).
+- **EasySell:** `GET /easysell-orders` (JSON, unfiltered), `GET /easysell-orders/view` (HTML; shared date window `?period|month|from+to` filtered in-memory on `date_heure` — undated rows show only under "Tout").
 - **Product:** JSON REST `GET/POST /products`, `GET/PATCH/DELETE /products/:id` (`DELETE` = archive, never hard delete — RM-04). HTML: `GET /products/view` (`?status=all|active|archived`), `GET|POST /products/new`, `GET /products/:id/view`, `GET|POST /products/:id/edit`, `POST /products/:id/archive`. Forms post `urlencoded`; zod normalizes inputs; business rules (RM-01 name, RM-02 sellingPrice > 0, default `active`) in `product.service.ts`.
-- **Sales:** JSON `GET/POST /sales`, `GET /sales/:id`, `PATCH /sales/:id/cancel`. HTML: `GET /sales/view`, `GET|POST /sales/new`, `GET /sales/:id/view`, `POST /sales/:id/cancel`.
+- **Sales:** JSON `GET/POST /sales`, `GET /sales/:id`, `PATCH /sales/:id/cancel`. HTML: `GET /sales/view` (date filter `?period|month|from+to` + `?status`), `GET|POST /sales/new`, `GET /sales/:id/view`, `POST /sales/:id/cancel`.
 - **Stock:** JSON `GET/POST /stock/movements`, `GET /stock`. HTML: `GET /stock/view`, `GET|POST /stock/movements/new`, `GET /stock/movements`, `GET /stock/:productId/view`.
 - **Reconciliation:** `GET /reconciliation/view`, `POST /reconciliation/reconcile`.
-- **Analytics:** `GET /analytics` (JSON), `GET /analytics/view`.
+- **Analytics:** `GET /analytics` (JSON), `GET /analytics/view`. Both accept `?sheetId=` and the shared date window (`?period|month|from+to`); "CA du mois" stays the current calendar month, independent of the window.
 - **Costing:** `GET /costing/view` (audit screen), `POST /costing/recalculate`.
 
 ### File notes
@@ -135,7 +135,7 @@ Key design decisions:
 - `src/db/schema.ts` — **barrel only**: re-exports every schema; defines no table. This is the single aggregation point Drizzle reads (`drizzle.config.ts` + `db/client.ts`), so editing the re-exported files drives migrations. **Schema separation rule:** all schemas live under `src/db/schemas/`, **one file per module/topic** (`<topic>.schema.ts`). Never define a table in the barrel. To add a table: create/edit `src/db/schemas/<topic>.schema.ts` then re-export it. Today: `easysell-order`, `app-settings`, `product`, `sales`, `easysell-sale` (+ `easysell_product_mappings`), `stock-movement`, `sale-lot-allocation`.
 - `src/db/client.ts` — the shared Drizzle client (`db`); import this from adapters/scripts.
 - `src/db/index.ts` — despite the name, the **seed script**, not the client. Re-runnable; wipes `easysell_orders` first.
-- `src/shared/` — cross-cutting: `view.ts` (SSR bridge + `NavKey`), `home.tsx` (dashboard `/` controller), `dashboard.read.ts` (transverse compute-on-read SQL), `settings.ts` + `settings.rest.ts` (Sheet config), `scheduler.ts` (the cron pipeline), `errors.ts` (domain errors + FK-violation detection), `format.ts`, `validate.ts` (zod body validation), `views/` (EJS layout, `DashboardPage.tsx`, `charts.tsx`).
+- `src/shared/` — cross-cutting: `view.tsx` (SSR bridge + `NavKey`; renders chrome + body), `home.tsx` (dashboard `/` controller), `dashboard.read.ts` (transverse compute-on-read SQL), `settings.ts` (Sheet config helpers) + `settings.rest.tsx` (`GET /settings/view` page + `POST /settings/google-sheet` + `parseSheetStatus`), `date-scope.ts` (shared date-window filter: `resolveDateScope` → `{scope, range}` + `dateScopeQuery`, used by Sales/Analytics/EasySell), `scheduler.ts` (the cron pipeline), `errors.ts` (domain errors + FK-violation detection), `format.ts`, `validate.ts` (zod body validation), `views/` (`layout.ejs` shell, `Sidebar.tsx`, `Topbar.tsx`, `DashboardPage.tsx`, `SettingsPage.tsx`, `DateFilterBar.tsx`, `charts.tsx`).
 - `src/lib/google-sheet.ts` — Google Sheets API client (service account).
 - `src/script/` — manual one-shot triggers over the same services (see Commands).
 - `drizzle/` — generated SQL migrations (`0000`–`0008`) + metadata; don't hand-edit.

@@ -41,7 +41,7 @@ export function StockPage({ stocks, summary }: StockPageProps) {
           placeholder="Filtrer (produit…)"
           autoComplete="off"
         />
-        <table id="stock-table" data-page-size="15">
+        <table id="stock-table" data-page-size="10">
           <thead>
             <tr>
               <th>Produit</th>

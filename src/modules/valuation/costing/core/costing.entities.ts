@@ -72,10 +72,7 @@ export interface CostingRepository {
   /** Journal complet d'un produit, trié (created_at, id) croissant. */
   eventsForProduct(productId: string): Promise<LedgerEvent[]>;
   /** Journal d'un produit jusqu'au mouvement 'out' d'une vente (inclus). */
-  eventsForProductUpToSale(
-    productId: string,
-    saleId: string,
-  ): Promise<LedgerEvent[]>;
+  eventsForProductUpToSale(productId: string,saleId: string,): Promise<LedgerEvent[]>;
   /** Produits ayant au moins un mouvement (pour le recalcul global). */
   distinctProductIds(): Promise<string[]>;
   /** Coût de repli (products.cost_price ?? 0) d'un produit. */

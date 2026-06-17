@@ -28,7 +28,7 @@ function makeProduct(over: Partial<Product> = {}): Product {
     name: "Produit test",
     description: null,
     sellingPrice: 1000,
-    costPrice: null,
+    defaultCostPrice: null,
     status: "active",
     createdAt: now,
     updatedAt: now,

@@ -1,3 +1,4 @@
+import { FiArrowLeft } from "react-icons/fi";
 import type { StockMovement, StockMovementType } from "../../core/stock.entities";
 import { formatDateTime } from "../../../../../shared/format";
 
@@ -20,7 +21,7 @@ export function StockMovementsPage({ movements, productNameById }: StockMovement
     <div className="wrap">
       <div className="toolbar">
         <div className="nav">
-          <a href="/stock/view">← Niveaux de stock</a>
+          <a href="/stock/view"><FiArrowLeft style={{ verticalAlign: "-2px" }} /> Niveaux de stock</a>
         </div>
         <a className="btn btn-primary" href="/stock/movements/new">+ Mouvement</a>
       </div>

@@ -1,3 +1,4 @@
+import { FiCheckCircle } from "react-icons/fi";
 import type {
   PendingGroup,
   ReconciliationCounts,
@@ -57,7 +58,10 @@ export function ReconciliationPage({ groups, counts, products, error }: Reconcil
         {groups.length === 0 ? (
           <div className="detail">
             <div className="row">
-              <span className="val">🎉 Toutes les ventes EasySell sont réconciliées.</span>
+              <span className="val" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <FiCheckCircle style={{ flex: "0 0 auto", color: "#2f9e5b" }} />
+                Toutes les ventes EasySell sont réconciliées.
+              </span>
             </div>
           </div>
         ) : (

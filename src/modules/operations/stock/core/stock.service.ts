@@ -57,11 +57,11 @@ export class StockService {
     const delta = computeDelta(input.type, input.quantity, current);
 
     // Coût du lot : sur une entrée 'in' (réappro), le coût saisi ou, à défaut,
-    // le coût de revient du produit (repli, pour ne pas casser la saisie
+    // le coût de revient par défaut du produit (repli, pour ne pas casser la saisie
     // existante). Une sortie ne porte pas de coût (il est rejoué en FIFO).
     const unitCost =
       input.type === "in"
-        ? (input.unitCost ?? product.costPrice ?? null)
+        ? (input.unitCost ?? product.defaultCostPrice ?? null)
         : (input.unitCost ?? null);
 
     return this.repo.create({

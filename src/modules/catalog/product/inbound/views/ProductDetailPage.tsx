@@ -1,3 +1,4 @@
+import { FiArrowLeft } from "react-icons/fi";
 import type { Product } from "../../core/product.entities";
 import { money, formatDateTime } from "../../../../../shared/format";
 
@@ -6,8 +7,8 @@ interface ProductDetailPageProps {
 }
 
 const margin = (p: Product): number | null =>
-  p.sellingPrice !== null && p.costPrice !== null
-    ? p.sellingPrice - p.costPrice
+  p.sellingPrice !== null && p.defaultCostPrice !== null
+    ? p.sellingPrice - p.defaultCostPrice
     : null;
 
 /** UC-03 — Détail d'un produit + actions (modifier, archiver). */
@@ -18,7 +19,7 @@ export function ProductDetailPage({ product: p }: ProductDetailPageProps) {
   return (
     <div className="wrap">
       <div className="nav">
-        <a href="/products/view">← Retour au catalogue</a>
+        <a href="/products/view"><FiArrowLeft style={{ verticalAlign: "-2px" }} /> Retour au catalogue</a>
       </div>
 
       <div className="detail">
@@ -39,8 +40,8 @@ export function ProductDetailPage({ product: p }: ProductDetailPageProps) {
           <span className="val">{p.sellingPrice !== null ? money(p.sellingPrice) : "—"}</span>
         </div>
         <div className="row">
-          <span className="lbl">Prix de revient</span>
-          <span className="val">{p.costPrice !== null ? money(p.costPrice) : "—"}</span>
+          <span className="lbl">Prix de revient (défaut)</span>
+          <span className="val">{p.defaultCostPrice !== null ? money(p.defaultCostPrice) : "—"}</span>
         </div>
         <div className="row">
           <span className="lbl">Marge brute</span>

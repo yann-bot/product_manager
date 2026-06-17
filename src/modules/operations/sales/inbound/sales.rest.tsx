@@ -7,13 +7,8 @@ import type { CreateSaleDTO } from "../core/sales.entities";
 import { NotFoundError, ValidationError } from "../../../../shared/errors";
 import { validateBody } from "../../../../shared/validate";
 import { renderPage } from "../../../../shared/view";
-import { formatDate, formatMonth } from "../../../../shared/format";
-import {
-  SalesPage,
-  type SaleStatusFilter,
-  type SalePeriod,
-  type DateScope,
-} from "./views/SalesPage";
+import { resolveDateScope } from "../../../../shared/date-scope";
+import { SalesPage, type SaleStatusFilter } from "./views/SalesPage";
 import { SalesFormPage, type SellableProduct } from "./views/SalesFormPage";
 import { SaleDetailPage } from "./views/SaleDetailPage";
 
@@ -48,128 +43,6 @@ const createSchema = z.object({
 
 const asFilter = (v: unknown): SaleStatusFilter =>
   v === "completed" || v === "cancelled" ? v : "all";
-
-const asPeriod = (v: unknown): SalePeriod =>
-  v === "day" || v === "week" || v === "month" ? v : "all";
-
-// Fenêtre temporelle résolue : bornes [from, to) en heure locale serveur.
-// `null` = borne absente (ouverte de ce côté).
-type DateRange = { from: Date | null; to: Date | null };
-
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const MONTH_RE = /^\d{4}-\d{2}$/;
-
-const str = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
-
-function addDays(d: Date, n: number): Date {
-  const r = new Date(d);
-  r.setDate(r.getDate() + n);
-  return r;
-}
-
-/** « YYYY-MM-DD » -> Date locale à minuit ; null si invalide (ou rebouclée). */
-function parseDay(s: string): Date | null {
-  if (!DATE_RE.test(s)) return null;
-  const [y, m, d] = s.split("-").map(Number) as [number, number, number];
-  const date = new Date(y, m - 1, d);
-  return date.getMonth() === m - 1 && date.getDate() === d ? date : null;
-}
-
-/** « YYYY-MM » -> 1er du mois à minuit (heure locale) ; null si invalide. */
-function parseMonth(s: string): Date | null {
-  if (!MONTH_RE.test(s)) return null;
-  const [y, m] = s.split("-").map(Number) as [number, number];
-  return m >= 1 && m <= 12 ? new Date(y, m - 1, 1) : null;
-}
-
-/**
- * Borne basse INCLUSE d'un préréglage calendaire ; `null` pour « Tout ».
- * La semaine commence le lundi (fr-FR). Pas de borne haute : `saleDate`
- * vaut la date de création, donc jamais dans le futur.
- */
-function periodStart(period: SalePeriod, now: Date = new Date()): Date | null {
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  switch (period) {
-    case "day":
-      return startOfDay;
-    case "week": {
-      const monday = new Date(startOfDay);
-      // getDay(): 0=dim..6=sam -> nombre de jours à reculer jusqu'au lundi.
-      monday.setDate(monday.getDate() - ((startOfDay.getDay() + 6) % 7));
-      return monday;
-    }
-    case "month":
-      return new Date(now.getFullYear(), now.getMonth(), 1);
-    case "all":
-      return null;
-  }
-}
-
-const PRESET_LABEL: Record<SalePeriod, string> = {
-  all: "Toutes les ventes",
-  day: "Aujourd'hui",
-  week: "Cette semaine",
-  month: "Ce mois-ci",
-};
-
-function intervalLabel(from: Date | null, to: Date | null): string {
-  if (from && to) return `du ${formatDate(from)} au ${formatDate(to)}`;
-  if (from) return `depuis le ${formatDate(from)}`;
-  if (to) return `jusqu'au ${formatDate(to)}`;
-  return "Toutes les ventes";
-}
-
-/**
- * Résout la fenêtre temporelle depuis la query, par précédence :
- *   1. intervalle personnalisé (?from / ?to) dès qu'une borne valide existe ;
- *   2. mois précis (?month=YYYY-MM) ;
- *   3. préréglage (?period=…), défaut « all ».
- * Retourne le `scope` (chaînes pour la vue) ET le `range` (Dates pour le filtre).
- */
-function resolveDateScope(query: unknown): { scope: DateScope; range: DateRange } {
-  const q = query as Record<string, unknown>;
-
-  const fromDay = parseDay(str(q.from));
-  const toDay = parseDay(str(q.to));
-  if (fromDay || toDay) {
-    return {
-      scope: {
-        mode: "interval",
-        period: "all",
-        month: "",
-        from: fromDay ? str(q.from) : "",
-        to: toDay ? str(q.to) : "",
-        label: intervalLabel(fromDay, toDay),
-      },
-      // Journée `to` incluse -> borne haute exclue = son lendemain.
-      range: { from: fromDay, to: toDay ? addDays(toDay, 1) : null },
-    };
-  }
-
-  const monthDate = parseMonth(str(q.month));
-  if (monthDate) {
-    return {
-      scope: {
-        mode: "month",
-        period: "all",
-        month: str(q.month),
-        from: "",
-        to: "",
-        label: formatMonth(monthDate),
-      },
-      range: {
-        from: monthDate,
-        to: new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 1),
-      },
-    };
-  }
-
-  const period = asPeriod(q.period);
-  return {
-    scope: { mode: "preset", period, month: "", from: "", to: "", label: PRESET_LABEL[period] },
-    range: { from: periodStart(period), to: null },
-  };
-}
 
 /** Mappe une erreur de domaine vers un code HTTP pour les réponses JSON. */
 function sendError(res: Response, err: unknown): void {
@@ -224,7 +97,7 @@ export default function SalesController(
   router.get("/sales/view", async (req, res) => {
     try {
       const filter = asFilter(req.query.status);
-      const { scope, range } = resolveDateScope(req.query);
+      const { scope, range } = resolveDateScope(req.query, "Toutes les ventes");
 
       const all = await service.findAll();
       // Restreint à la fenêtre [from, to) (compteurs et CA s'y rapportent).

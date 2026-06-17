@@ -1,8 +1,5 @@
 import { classifyStatus } from "../../../reporting/analytics/core/classify-status";
-import {
-  easysellSales,
-  DEFAULT_RECONCILIATION_STATUS,
-} from "../../../../db/schemas/easysell-sale.schema";
+import { easysellSales, DEFAULT_RECONCILIATION_STATUS,} from "../../../../db/schemas/easysell-sale.schema";
 
 //
 // ======================================================

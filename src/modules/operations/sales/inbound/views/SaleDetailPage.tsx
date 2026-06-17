@@ -1,3 +1,4 @@
+import { FiArrowLeft } from "react-icons/fi";
 import type { Sale } from "../../core/sales.entities";
 import { money, formatDateTime } from "../../../../../shared/format";
 
@@ -17,7 +18,7 @@ export function SaleDetailPage({ sale: s, productName }: SaleDetailPageProps) {
   return (
     <div className="wrap">
       <div className="nav">
-        <a href="/sales/view">← Retour aux ventes</a>
+        <a href="/sales/view"><FiArrowLeft style={{ verticalAlign: "-2px" }} /> Retour aux ventes</a>
       </div>
 
       <div className="detail">

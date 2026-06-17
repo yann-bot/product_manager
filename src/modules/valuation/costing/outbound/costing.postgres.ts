@@ -78,11 +78,11 @@ export class CostingPostgresRepository implements CostingRepository {
 
   async fallbackCostOf(productId: string): Promise<number> {
     const [row] = await this.db
-      .select({ costPrice: products.costPrice })
+      .select({ defaultCostPrice: products.defaultCostPrice })
       .from(products)
       .where(eq(products.id, productId))
       .limit(1);
-    return row?.costPrice != null ? Number(row.costPrice) : 0;
+    return row?.defaultCostPrice != null ? Number(row.defaultCostPrice) : 0;
   }
 
   // Fige le snapshot d'une vente : ventilation (remplacée pour idempotence) +

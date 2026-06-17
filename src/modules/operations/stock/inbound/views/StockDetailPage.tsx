@@ -1,3 +1,4 @@
+import { FiArrowLeft } from "react-icons/fi";
 import type { StockMovement, StockMovementType } from "../../core/stock.entities";
 import { formatDateTime } from "../../../../../shared/format";
 
@@ -24,7 +25,7 @@ export function StockDetailPage({ productId, productName, currentStock, movement
   return (
     <div className="wrap">
       <div className="nav">
-        <a href="/stock/view">← Retour au stock</a>
+        <a href="/stock/view"><FiArrowLeft style={{ verticalAlign: "-2px" }} /> Retour au stock</a>
       </div>
 
       <div className="cards">

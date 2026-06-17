@@ -1,5 +1,8 @@
 import type { CSSProperties } from "react";
+import { FiAlertTriangle } from "react-icons/fi";
 import { money, percent } from "../../../../../shared/format";
+import type { DateScope } from "../../../../../shared/date-scope";
+import { DateFilterBar } from "../../../../../shared/views/DateFilterBar";
 import type { StatusBucket } from "../../core/classify-status";
 import type {
   DailyPoint,
@@ -15,10 +18,14 @@ import type {
 
 interface Props {
   indicators: Indicators;
-  /** CA du mois courant (mois calendaire en cours). */
+  /** CA du mois courant (mois calendaire en cours, indépendant de la fenêtre). */
   monthRevenue: number;
   breakdown: StatusBreakdownItem[];
   daily: DailyPoint[];
+  /** Fenêtre temporelle active (préréglage, mois précis ou intervalle). */
+  scope: DateScope;
+  /** Sheet filtré (?sheetId=), conservé sur les liens de la barre si présent. */
+  sheetId?: string | null;
 }
 
 const BUCKET_LABEL: Record<StatusBucket, string> = {
@@ -63,7 +70,14 @@ const rowStyle: CSSProperties = {
   padding: "6px 0",
 };
 
-export function AnalyticsPage({ indicators, monthRevenue, breakdown, daily }: Props) {
+export function AnalyticsPage({
+  indicators,
+  monthRevenue,
+  breakdown,
+  daily,
+  scope,
+  sheetId,
+}: Props) {
   const i = indicators;
   const totalBreakdown = breakdown.reduce((s, b) => s + b.count, 0);
   const maxRevenue = Math.max(1, ...daily.map((d) => d.revenue));
@@ -81,9 +95,16 @@ export function AnalyticsPage({ indicators, monthRevenue, breakdown, daily }: Pr
       </div>
 
       <div className="wrap">
+        <DateFilterBar
+          scope={scope}
+          action="/analytics/view"
+          hidden={sheetId ? { sheetId } : undefined}
+        />
+
         {i.deliveredMissingAmount > 0 && (
-          <div className="sub" style={{ margin: "4px 0 8px" }}>
-            ⚠️ {i.deliveredMissingAmount} commande
+          <div className="sub" style={{ margin: "4px 0 8px", display: "flex", alignItems: "center", gap: 6 }}>
+            <FiAlertTriangle style={{ flex: "0 0 auto", color: "#fbbf24" }} />
+            {i.deliveredMissingAmount} commande
             {i.deliveredMissingAmount > 1 ? "s" : ""} livrée
             {i.deliveredMissingAmount > 1 ? "s" : ""} sans montant — exclue
             {i.deliveredMissingAmount > 1 ? "s" : ""} du CA, à corriger dans le

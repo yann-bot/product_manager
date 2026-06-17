@@ -2,7 +2,7 @@ interface ProductFormValues {
   name?: string;
   description?: string | null;
   sellingPrice?: number | null;
-  costPrice?: number | null;
+  defaultCostPrice?: number | null;
   status?: "active" | "archived";
 }
 
@@ -47,17 +47,17 @@ export function ProductFormPage({ mode, action, values, error }: ProductFormPage
         </div>
 
         <div className="field">
-          <label htmlFor="costPrice">Prix de revient (FCFA)</label>
+          <label htmlFor="defaultCostPrice">Prix de revient par défaut (FCFA)</label>
           <input
-            id="costPrice"
-            name="costPrice"
+            id="defaultCostPrice"
+            name="defaultCostPrice"
             type="number"
             min="0"
             step="1"
-            defaultValue={num(v.costPrice)}
+            defaultValue={num(v.defaultCostPrice)}
           />
           <span className="sub" style={{ marginTop: 4 }}>
-            Coût d'achat unitaire — base du calcul de la marge (COGS) à défaut de lot de stock.
+            Coût de revient de repli : base de la marge (COGS) uniquement quand aucun lot de stock ne couvre la vente. Le vrai coût vient des lots (entrées de stock).
           </span>
         </div>
 

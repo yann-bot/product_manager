@@ -1,3 +1,4 @@
+import { FiArrowLeft, FiRefreshCw } from "react-icons/fi";
 import { money, formatDateTime } from "../../../../../shared/format";
 
 // Ligne d'audit (jointures produit + sélection des ventes complétées faites
@@ -64,12 +65,14 @@ export function CostingAuditPage({ rows, summary }: CostingAuditPageProps) {
       <div className="wrap">
         <div className="toolbar">
           <div className="nav">
-            <a href="/sales/view">← Ventes</a>
+            <a href="/sales/view">
+              <FiArrowLeft style={{ verticalAlign: "-2px" }} /> Ventes
+            </a>
           </div>
           {/* Recalcul auditable : rejoue le journal complet (résorbe les découverts). */}
           <form method="post" action="/costing/recalculate">
             <button className="btn btn-primary" type="submit">
-              ↻ Recalculer les COGS
+              <FiRefreshCw style={{ verticalAlign: "-2px" }} /> Recalculer les COGS
             </button>
           </form>
         </div>
@@ -81,7 +84,7 @@ export function CostingAuditPage({ rows, summary }: CostingAuditPageProps) {
           placeholder="Filtrer (produit…)"
           autoComplete="off"
         />
-        <table id="costing-table" data-page-size="20">
+        <table id="costing-table" data-page-size="10">
           <thead>
             <tr>
               <th>Date</th>

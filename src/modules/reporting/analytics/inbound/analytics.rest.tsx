@@ -2,11 +2,14 @@ import { Router } from "express";
 import type { AnalyticsService } from "../core/analytics.service";
 import type { AnalyticsFilter } from "../core/analytics.entities";
 import { renderPage } from "../../../../shared/view";
+import { resolveDateScope, type DateRange } from "../../../../shared/date-scope";
 import { AnalyticsPage } from "./views/AnalyticsPage";
 
 //
 // Controller Analytics. Tout est calculé À LA LECTURE (aucune table
-// d'agrégat). Filtre optionnel ?sheetId= pour restreindre à un Sheet.
+// d'agrégat). Filtres optionnels : ?sheetId= (par Sheet) et fenêtre
+// temporelle (?period / ?month / ?from+?to), mutualisée avec les Ventes
+// via shared/date-scope.
 //
 
 export default function AnalyticsController(service: AnalyticsService): Router {
@@ -15,14 +18,18 @@ export default function AnalyticsController(service: AnalyticsService): Router {
   // Vue HTML : tableau de bord analytique.
   router.get("/analytics/view", async (req, res) => {
     try {
-      const filter = filterOf(req.query);
-      const monthStart = startOfCurrentMonth();
+      const { scope, range } = resolveDateScope(req.query, "Toutes les commandes");
+      const sheetId = sheetIdOf(req.query);
+      const sheetFilter: AnalyticsFilter = sheetId ? { sheetId } : {};
+      // Indicateurs restreints à la fenêtre sélectionnée.
+      const windowFilter = withRange(sheetFilter, range);
 
       const [indicators, monthIndicators, breakdown, daily] = await Promise.all([
-        service.getIndicators(filter),
-        service.getIndicators({ ...filter, from: monthStart }),
-        service.getStatusBreakdown(filter),
-        service.getDailySeries(filter),
+        service.getIndicators(windowFilter),
+        // « CA du mois » : toujours le mois calendaire en cours (hors fenêtre).
+        service.getIndicators({ ...sheetFilter, from: startOfCurrentMonth() }),
+        service.getStatusBreakdown(windowFilter),
+        service.getDailySeries(windowFilter),
       ]);
 
       renderPage(res, {
@@ -35,6 +42,8 @@ export default function AnalyticsController(service: AnalyticsService): Router {
             monthRevenue={monthIndicators.revenue}
             breakdown={breakdown}
             daily={daily}
+            scope={scope}
+            sheetId={sheetId}
           />
         ),
       });
@@ -44,10 +53,13 @@ export default function AnalyticsController(service: AnalyticsService): Router {
     }
   });
 
-  // API JSON : indicateurs consolidés.
+  // API JSON : indicateurs consolidés (mêmes filtres que la vue).
   router.get("/analytics", async (req, res) => {
     try {
-      res.json(await service.getIndicators(filterOf(req.query)));
+      const { range } = resolveDateScope(req.query);
+      const sheetId = sheetIdOf(req.query);
+      const filter = withRange(sheetId ? { sheetId } : {}, range);
+      res.json(await service.getIndicators(filter));
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: "Failed to compute analytics" });
@@ -57,9 +69,17 @@ export default function AnalyticsController(service: AnalyticsService): Router {
   return router;
 }
 
-function filterOf(query: unknown): AnalyticsFilter {
+function sheetIdOf(query: unknown): string | null {
   const q = query as Record<string, unknown>;
-  return typeof q.sheetId === "string" ? { sheetId: q.sheetId } : {};
+  return typeof q.sheetId === "string" ? q.sheetId : null;
+}
+
+/** Ajoute les bornes [from, to) résolues au filtre (omises si ouvertes). */
+function withRange(base: AnalyticsFilter, range: DateRange): AnalyticsFilter {
+  const filter: AnalyticsFilter = { ...base };
+  if (range.from) filter.from = range.from;
+  if (range.to) filter.to = range.to;
+  return filter;
 }
 
 // 1er jour du mois calendaire en cours, à minuit (heure locale serveur).
