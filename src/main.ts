@@ -5,12 +5,13 @@ import express from "express";
 import { startCrons } from "./shared/scheduler";
 import HomeRouter from "./shared/home";
 import SettingsRouter from "./shared/settings.rest";
-import EasySellOrderRouter from "./modules/easysell";
-import ProductRouter from "./modules/product";
-import SalesRouter from "./modules/sales";
-import StockRouter from "./modules/stock";
-import ReconciliationRouter from "./modules/easysell-sale";
-import AnalyticsRouter from "./modules/analytics";
+import EasySellOrderRouter from "./modules/ingestion/easysell";
+import ProductRouter from "./modules/catalog/product";
+import SalesRouter from "./modules/operations/sales";
+import StockRouter from "./modules/operations/stock";
+import ReconciliationRouter from "./modules/ingestion/easysell-sale";
+import AnalyticsRouter from "./modules/reporting/analytics";
+import CostingRouter from "./modules/valuation/costing";
 
 const app = express();
 app.use(express.json());
@@ -32,6 +33,7 @@ app.use(SalesRouter);
 app.use(StockRouter);
 app.use(ReconciliationRouter);
 app.use(AnalyticsRouter);
+app.use(CostingRouter);
 
 // Repli statique : assets + ancienne UI de test accessible via /index.html.
 // `index: false` pour ne pas court-circuiter la route "/" du dashboard.

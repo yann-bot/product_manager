@@ -19,11 +19,13 @@ import { db } from "../db/client";
 import { easysellSales } from "../db/schemas/easysell-sale.schema";
 import { sales } from "../db/schemas/sales.schema";
 import { stockMovements } from "../db/schemas/stock-movement.schema";
-import { StockService } from "../modules/stock/core/stock.service";
-import { StockPostgresRepository } from "../modules/stock/outbound/stock.postgres";
-import { ProductPostgresRepository } from "../modules/product/outbound/product.postgres";
-import { SalesService } from "../modules/sales/core/sales.service";
-import { SalesPostgresRepository } from "../modules/sales/outbound/sales.postgres";
+import { StockService } from "../modules/operations/stock/core/stock.service";
+import { StockPostgresRepository } from "../modules/operations/stock/outbound/stock.postgres";
+import { ProductPostgresRepository } from "../modules/catalog/product/outbound/product.postgres";
+import { SalesService } from "../modules/operations/sales/core/sales.service";
+import { SalesPostgresRepository } from "../modules/operations/sales/outbound/sales.postgres";
+import { CostingService } from "../modules/valuation/costing/core/costing.service";
+import { CostingPostgresRepository } from "../modules/valuation/costing/outbound/costing.postgres";
 
 async function main() {
   const productRepo = new ProductPostgresRepository(db);
@@ -32,6 +34,7 @@ async function main() {
     new SalesPostgresRepository(db),
     productRepo,
     stock,
+    new CostingService(new CostingPostgresRepository(db)),
   );
 
   const rows = await db

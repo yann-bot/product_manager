@@ -21,3 +21,4 @@ export * from "./schemas/product.schema";
 export * from "./schemas/sales.schema";
 export * from "./schemas/easysell-sale.schema";
 export * from "./schemas/stock-movement.schema";
+export * from "./schemas/sale-lot-allocation.schema";

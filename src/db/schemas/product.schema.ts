@@ -6,7 +6,7 @@ import {
   numeric,
   timestamp,
 } from "drizzle-orm/pg-core";
-import { DEFAULT_PRODUCT_STATUS } from "../../modules/product/core/product.entities";
+import { DEFAULT_PRODUCT_STATUS } from "../../modules/catalog/product/core/product.entities";
 
 //
 // ======================================================
@@ -31,7 +31,11 @@ export const products = pgTable("products", {
   // Argent : numeric(12,2) (FCFA), nullable. Remonte en `string`
   // via Drizzle ; l'adaptateur outbound convertit en `number`.
   sellingPrice: numeric("selling_price", { precision: 12, scale: 2 }),
-  costPrice: numeric("cost_price", { precision: 12, scale: 2 }),
+  // Coût de revient PAR DÉFAUT (repli) — pas le prix d'achat de référence,
+  // qui vit par lot sur stock_movements.unit_cost (rejeu FIFO, module costing).
+  // Propriété renommée `defaultCostPrice` ; la colonne reste `cost_price`
+  // (renommage de colonne volontairement évité pour ne pas migrer la prod).
+  defaultCostPrice: numeric("cost_price", { precision: 12, scale: 2 }),
 
   // "active" | "archived" — VARCHAR (pas un enum pg) pour rester
   // souple. Défaut DB = filet de sécurité aligné sur le service.

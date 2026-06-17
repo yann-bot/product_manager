@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { db } from "../db/client";
-import { classifyStatus } from "../modules/analytics/core/classify-status";
+import { classifyStatus } from "../modules/reporting/analytics/core/classify-status";
 
 //
 // ======================================================

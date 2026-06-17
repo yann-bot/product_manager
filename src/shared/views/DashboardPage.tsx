@@ -7,30 +7,21 @@
 //
 
 import type { ReactNode } from "react";
+import type { IconType } from "react-icons";
+import { FiBox, FiInbox, FiLayers } from "react-icons/fi";
 import type { DashboardData } from "../dashboard.read";
 import { compact, compactMoney, money, percent } from "../format";
 import { AreaTrend } from "./charts";
 
 interface DashboardPageProps {
   data: DashboardData;
-  sheetId: string | null;
-  sheetUrl: string | null;
-  serviceAccount: string | null;
-  status: { kind: "ok" | "err"; message: string } | null;
 }
 
 // Pastilles de plage temporelle (décoratives) : la série couvre 6 mois.
 const RANGES = ["1M", "3M", "6M", "1A", "Max"];
 const ACTIVE_RANGE = "6M";
 
-export function DashboardPage({
-  data,
-  sheetId,
-  sheetUrl,
-  serviceAccount,
-  status,
-}: DashboardPageProps) {
-  const connected = Boolean(sheetId);
+export function DashboardPage({ data }: DashboardPageProps) {
   const { kpi, topProducts, monthlyRevenue } = data;
 
   const totalRevenue = monthlyRevenue.reduce((s, m) => s + m.revenue, 0);
@@ -45,12 +36,6 @@ export function DashboardPage({
 
   return (
     <div className="dash">
-      {status && (
-        <div className={status.kind === "ok" ? "alert alert-ok" : "alert"}>
-          {status.message}
-        </div>
-      )}
-
       <h2 className="ov-title">Vue d'ensemble</h2>
 
       {/* ---- Portfolio (CA) + cartes KPI pastel ---- */}
@@ -93,7 +78,7 @@ export function DashboardPage({
             tone="lav"
             value={compact(kpi.totalProducts)}
             label="Produits au catalogue"
-            icon="📦"
+            icon={FiBox}
             delta="actifs"
             deltaTone="muted"
           />
@@ -101,7 +86,7 @@ export function DashboardPage({
             tone="mint"
             value={compact(kpi.ordersCount)}
             label="Commandes EasySell"
-            icon="🛒"
+            icon={FiInbox}
             delta="synchronisées"
             deltaTone="muted"
           />
@@ -109,7 +94,7 @@ export function DashboardPage({
             tone="cream"
             value={`${compact(kpi.totalStock)} u.`}
             label="Stock total"
-            icon="🗃️"
+            icon={FiLayers}
             delta={
               kpi.outOfStock > 0 ? `${compact(kpi.outOfStock)} en rupture` : "0 rupture"
             }
@@ -118,84 +103,42 @@ export function DashboardPage({
         </div>
       </div>
 
-      {/* ---- Table « marché » (top produits) + carte source ---- */}
-      <div className="ov-bottom">
-        <section className="market">
-          <div className="mk-h">Top produits par chiffre d'affaires</div>
-          {topProducts.length === 0 ? (
-            <Empty>Aucune vente enregistrée pour l'instant.</Empty>
-          ) : (
-            <table className="mk-table">
-              <thead>
-                <tr>
-                  <th>Produit</th>
-                  <th className="num">Chiffre d'affaires</th>
-                  <th className="num">Part</th>
-                </tr>
-              </thead>
-              <tbody>
-                {topProducts.map((p) => {
-                  const share = topTotal > 0 ? p.revenue / topTotal : 0;
-                  return (
-                    <tr key={p.name}>
-                      <td>
-                        <div className="mk-name">
-                          <span className="mk-badge">{initials(p.name)}</span>
-                          <span>
-                            <b>{p.name}</b>
-                          </span>
-                        </div>
-                      </td>
-                      <td className="num">{compactMoney(p.revenue)}</td>
-                      <td className="num mk-pos">{percent(share)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-        </section>
-
-        {/* Carte sombre (ex-promo) -> connexion de la source Google Sheet. */}
-        <aside className="promo">
-          <h3>
-            Source <span className="pin">EasySell</span> Google&nbsp;Sheet
-          </h3>
-          <div className={connected ? "promo-status on" : "promo-status off"}>
-            {connected ? "● Source connectée" : "○ Non configurée"}
-          </div>
-          {connected && sheetId && (
-            <p>
-              Sheet&nbsp;: <span className="ref">{sheetId}</span>
-            </p>
-          )}
-          {!connected && (
-            <p>
-              Connectez le Google Sheet EasySell pour démarrer la synchronisation
-              automatique des commandes.
-            </p>
-          )}
-          <form method="post" action="/settings/google-sheet">
-            <input
-              id="url"
-              name="url"
-              type="url"
-              defaultValue={sheetUrl ?? ""}
-              placeholder="https://docs.google.com/spreadsheets/d/…/edit"
-              required
-            />
-            <button type="submit" className="promo-btn">
-              {connected ? "Mettre à jour" : "Connecter le Sheet"}
-            </button>
-          </form>
-          {serviceAccount && (
-            <p style={{ marginTop: 12, marginBottom: 0 }}>
-              Partagez d'abord le Sheet (lecture) avec{" "}
-              <span className="ref">{serviceAccount}</span>.
-            </p>
-          )}
-        </aside>
-      </div>
+      {/* ---- Table « marché » (top produits), pleine largeur ---- */}
+      <section className="market">
+        <div className="mk-h">Top produits par chiffre d'affaires</div>
+        {topProducts.length === 0 ? (
+          <Empty>Aucune vente enregistrée pour l'instant.</Empty>
+        ) : (
+          <table className="mk-table">
+            <thead>
+              <tr>
+                <th>Produit</th>
+                <th className="num">Chiffre d'affaires</th>
+                <th className="num">Part</th>
+              </tr>
+            </thead>
+            <tbody>
+              {topProducts.map((p) => {
+                const share = topTotal > 0 ? p.revenue / topTotal : 0;
+                return (
+                  <tr key={p.name}>
+                    <td>
+                      <div className="mk-name">
+                        <span className="mk-badge">{initials(p.name)}</span>
+                        <span>
+                          <b>{p.name}</b>
+                        </span>
+                      </div>
+                    </td>
+                    <td className="num">{compactMoney(p.revenue)}</td>
+                    <td className="num mk-pos">{percent(share)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </section>
     </div>
   );
 }
@@ -204,14 +147,14 @@ function Asset({
   tone,
   value,
   label,
-  icon,
+  icon: Icon,
   delta,
   deltaTone,
 }: {
   tone: "lav" | "mint" | "cream";
   value: string;
   label: string;
-  icon: string;
+  icon: IconType;
   delta: string;
   deltaTone: "pos" | "amber" | "muted";
 }) {
@@ -220,7 +163,9 @@ function Asset({
       <div className="asset-v">{value}</div>
       <div className="asset-l">{label}</div>
       <div className="asset-foot">
-        <span className="asset-ic">{icon}</span>
+        <span className="asset-ic">
+          <Icon size={16} />
+        </span>
         <span className={`asset-delta ${deltaTone}`}>{delta}</span>
       </div>
     </div>
