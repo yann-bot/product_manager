@@ -21,7 +21,8 @@ export type NavKey =
   | "sales"
   | "stock"
   | "reconciliation"
-  | "analytics";
+  | "analytics"
+  | "costing";
 
 export interface PageOptions {
   /** Titre de la page (<title> + <h1>). */

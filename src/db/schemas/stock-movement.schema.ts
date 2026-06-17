@@ -3,6 +3,7 @@ import {
   uuid,
   varchar,
   integer,
+  numeric,
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
@@ -45,6 +46,13 @@ export const stockMovements = pgTable("stock_movements", {
 
   // Delta signé (cf. en-tête). SUM(quantity) = stock courant.
   quantity: integer("quantity").notNull(),
+
+  // Prix de revient unitaire du LOT (FCFA, numeric(12,2) -> string via Drizzle).
+  // Renseigné sur les mouvements de DISPONIBILITÉ (entrée 'in' = réappro, ou
+  // entrée compensatoire d'annulation) ; NULL sur la consommation pure ('out').
+  // C'est le coût FIGÉ du lot : le module costing le rejoue en FIFO pour valoriser
+  // les ventes (cf. `modules/costing`). Le prix de VENTE, lui, vit sur le produit.
+  unitCost: numeric("unit_cost", { precision: 12, scale: 2 }),
 
   note: text("note"),
 

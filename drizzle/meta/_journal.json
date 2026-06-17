@@ -57,6 +57,13 @@
       "when": 1780936696331,
       "tag": "0007_add_sale_easysell_link",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1781614966465,
+      "tag": "0008_add_cogs_costing",
+      "breakpoints": true
     }
   ]
 }

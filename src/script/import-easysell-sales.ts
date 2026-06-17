@@ -5,17 +5,24 @@
 
 import "dotenv/config";
 import { db } from "../db/client";
-import { EasySellSaleImportService } from "../modules/easysell-sale/core/import-sales.service";
-import { StockService } from "../modules/stock/core/stock.service";
-import { StockPostgresRepository } from "../modules/stock/outbound/stock.postgres";
-import { ProductPostgresRepository } from "../modules/product/outbound/product.postgres";
-import { SalesService } from "../modules/sales/core/sales.service";
-import { SalesPostgresRepository } from "../modules/sales/outbound/sales.postgres";
+import { EasySellSaleImportService } from "../modules/ingestion/easysell-sale/core/import-sales.service";
+import { StockService } from "../modules/operations/stock/core/stock.service";
+import { StockPostgresRepository } from "../modules/operations/stock/outbound/stock.postgres";
+import { ProductPostgresRepository } from "../modules/catalog/product/outbound/product.postgres";
+import { SalesService } from "../modules/operations/sales/core/sales.service";
+import { SalesPostgresRepository } from "../modules/operations/sales/outbound/sales.postgres";
+import { CostingService } from "../modules/valuation/costing/core/costing.service";
+import { CostingPostgresRepository } from "../modules/valuation/costing/outbound/costing.postgres";
 
 async function main() {
   const productRepo = new ProductPostgresRepository(db);
   const stock = new StockService(new StockPostgresRepository(db), productRepo);
-  const sales = new SalesService(new SalesPostgresRepository(db), productRepo, stock);
+  const sales = new SalesService(
+    new SalesPostgresRepository(db),
+    productRepo,
+    stock,
+    new CostingService(new CostingPostgresRepository(db)),
+  );
   const r = await new EasySellSaleImportService(sales).import();
   console.log(
     `${r.imported} vente(s) importée(s) dans easysell_sales ` +

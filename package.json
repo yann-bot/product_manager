@@ -15,9 +15,8 @@
   "scripts": {
     "start": "bun run src/main.ts",
     "migrate": "drizzle-kit migrate",
-    "dev": "bun dev",
+    "dev": "bun --watch src/main.ts",
     "build": "bun build",
-    "watch": "tsx watch src/main.ts",
     "db:push": "drizzle-kit push",
     "db:up": "docker compose up",
     "db:down": "docker compose down",

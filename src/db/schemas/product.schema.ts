@@ -6,7 +6,7 @@ import {
   numeric,
   timestamp,
 } from "drizzle-orm/pg-core";
-import { DEFAULT_PRODUCT_STATUS } from "../../modules/product/core/product.entities";
+import { DEFAULT_PRODUCT_STATUS } from "../../modules/catalog/product/core/product.entities";
 
 //
 // ======================================================

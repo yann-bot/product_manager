@@ -7,7 +7,7 @@ import {
   numeric,
   timestamp,
 } from "drizzle-orm/pg-core";
-import { DEFAULT_SALE_STATUS } from "../../modules/sales/core/sales.entities";
+import { DEFAULT_SALE_STATUS } from "../../modules/operations/sales/core/sales.entities";
 import { products } from "./product.schema";
 import { easysellSales } from "./easysell-sale.schema";
 
@@ -53,6 +53,20 @@ export const sales = pgTable("sales", {
     .default(DEFAULT_SALE_STATUS),
 
   notes: text("notes"),
+
+  // ---- Valorisation COGS FIFO (module costing) ----
+  // `cogs` : SNAPSHOT du coût des marchandises vendues, figé à la vente par
+  // rejeu FIFO des lots (symétrique du prix de vente `unit_price`). Immuable.
+  // NULL tant que non valorisée (ventes antérieures au module, ou en attente).
+  cogs: numeric("cogs", { precision: 12, scale: 2 }),
+  // `cogs_recalculated` : COGS recalculé à la demande en rejouant le journal
+  // complet (vérité d'audit). L'écart avec `cogs` révèle les ventes faites à
+  // découvert puis régularisées. NULL tant qu'aucun recalcul n'a été lancé.
+  cogsRecalculated: numeric("cogs_recalculated", { precision: 12, scale: 2 }),
+  // Quantité non couverte par un lot réel au moment de la vente (découvert),
+  // cotée provisoirement. 0 = vente entièrement couverte. Marque les ventes à
+  // reprendre au recalcul.
+  shortfallQuantity: integer("shortfall_quantity").notNull().default(0),
 
   // Provenance : vente issue de la réconciliation d'une vente EasySell.
   // NULL pour une vente saisie manuellement. UNIQUE (un easysell_sales ne

@@ -1,12 +1,14 @@
 import cron from "node-cron";
 import { db } from "../db/client";
-import { EasySellSyncService } from "../modules/easysell/core/sync.service";
-import { EasySellSaleImportService } from "../modules/easysell-sale/core/import-sales.service";
-import { StockService } from "../modules/stock/core/stock.service";
-import { StockPostgresRepository } from "../modules/stock/outbound/stock.postgres";
-import { ProductPostgresRepository } from "../modules/product/outbound/product.postgres";
-import { SalesService } from "../modules/sales/core/sales.service";
-import { SalesPostgresRepository } from "../modules/sales/outbound/sales.postgres";
+import { EasySellSyncService } from "../modules/ingestion/easysell/core/sync.service";
+import { EasySellSaleImportService } from "../modules/ingestion/easysell-sale/core/import-sales.service";
+import { StockService } from "../modules/operations/stock/core/stock.service";
+import { StockPostgresRepository } from "../modules/operations/stock/outbound/stock.postgres";
+import { ProductPostgresRepository } from "../modules/catalog/product/outbound/product.postgres";
+import { SalesService } from "../modules/operations/sales/core/sales.service";
+import { SalesPostgresRepository } from "../modules/operations/sales/outbound/sales.postgres";
+import { CostingService } from "../modules/valuation/costing/core/costing.service";
+import { CostingPostgresRepository } from "../modules/valuation/costing/outbound/costing.postgres";
 
 //
 // ======================================================
@@ -56,6 +58,7 @@ export function startCrons(): void {
     new SalesPostgresRepository(db),
     productRepo,
     stockService,
+    new CostingService(new CostingPostgresRepository(db)),
   );
   const importSales = new EasySellSaleImportService(salesService);
 
