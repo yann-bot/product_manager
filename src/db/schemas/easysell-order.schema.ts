@@ -46,7 +46,10 @@ export const easysellOrders = pgTable("easysell_orders", {
 
   // Bloc client (brut)
   nomComplet: varchar("nom_complet", { length: 255 }),
-  telephone: varchar("telephone", { length: 50 }),
+  // text (pas de borne) : table de staging lenient — on garde la donnée
+  // telle qu'elle arrive. Une ligne décalée peut écrire une valeur longue
+  // ici (bug constaté : "value too long for varchar(50)").
+  telephone: text("telephone"),
   adresse: text("adresse"),
   noteClient: text("note_client"),
 
@@ -63,7 +66,8 @@ export const easysellOrders = pgTable("easysell_orders", {
   }),
 
   // Bloc commande (brut)
-  status: varchar("status", { length: 50 }),
+  // text : idem telephone, staging lenient (statuts EasySell verbatim).
+  status: text("status"),
   note: text("note"),
 
   syncedAt: timestamp("synced_at"),

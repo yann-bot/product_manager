@@ -30,6 +30,20 @@ import type { SalesWriter } from "./sales.port";
 // ======================================================
 //
 
+// Postgres borne une requête à 65535 paramètres (Int16 du protocole).
+// On découpe l'insert en tranches très en dessous de cette limite : sinon
+// un gros premier import (backlog de milliers de livraisons) casserait le
+// cron, comme constaté côté sync.service.ts. Voir aussi ce module miroir.
+const INSERT_CHUNK_SIZE = 1000;
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
+}
+
 export interface ImportResult {
   /** Lignes easysell_sales nouvellement insérées. */
   imported: number;
@@ -115,18 +129,27 @@ export class EasySellSaleImportService {
     const rows = [...toInsert.values()];
     let salesCreated = 0;
     if (rows.length > 0) {
-      const inserted = await db
-        .insert(easysellSales)
-        .values(rows)
-        .returning({
-          id: easysellSales.id,
-          productId: easysellSales.productId,
-          quantity: easysellSales.quantity,
-          reconciliationStatus: easysellSales.reconciliationStatus,
-          unitPrice: easysellSales.unitPrice,
-          totalPrice: easysellSales.totalPrice,
-          saleDate: easysellSales.saleDate,
-        });
+      // Insert découpé en tranches (voir INSERT_CHUNK_SIZE) pour rester
+      // sous la limite de paramètres de Postgres ; on accumule les lignes
+      // retournées avant de matérialiser les ventes internes.
+      const insertedBatches = [];
+      for (const batch of chunk(rows, INSERT_CHUNK_SIZE)) {
+        insertedBatches.push(
+          await db
+            .insert(easysellSales)
+            .values(batch)
+            .returning({
+              id: easysellSales.id,
+              productId: easysellSales.productId,
+              quantity: easysellSales.quantity,
+              reconciliationStatus: easysellSales.reconciliationStatus,
+              unitPrice: easysellSales.unitPrice,
+              totalPrice: easysellSales.totalPrice,
+              saleDate: easysellSales.saleDate,
+            }),
+        );
+      }
+      const inserted = insertedBatches.flat();
 
       // Vente interne pour les ventes AUTO-réconciliées à l'import (mapping
       // trouvé) : c'est elle qui décrémente le stock. Quantité nulle/≤0 ignorée.
