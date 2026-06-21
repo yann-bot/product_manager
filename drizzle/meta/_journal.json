@@ -64,6 +64,13 @@
       "when": 1781614966465,
       "tag": "0008_add_cogs_costing",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1782060056381,
+      "tag": "0009_giant_triton",
+      "breakpoints": true
     }
   ]
 }
