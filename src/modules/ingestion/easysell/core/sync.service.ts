@@ -36,30 +36,78 @@ const cell = (row: string[], i: number): string => (row[i] ?? "").trim();
 const isNumericCell = (raw: string): boolean =>
   raw !== "" && /^\d+([.,]\d+)?$/.test(raw.replace(/\s/g, ""));
 
-// Le Sheet n'est PAS régulier ligne par ligne. La plupart des lignes ont
-// une colonne vide "spacer" sans en-tête en index 4 (présente aussi dans
-// l'en-tête : DATE, N°, NOM, TEL, "", ADRESSE, NOTE CLIENT, PRODUIT…),
-// mais certaines lignes l'omettent et décalent le bloc ADRESSE..TOTAL d'un
-// cran à gauche. On détecte le cas PAR LIGNE : en layout normal l'index 7
-// est le NOM DU PRODUIT (texte) ; sans le spacer, l'index 7 est le PRIX
-// UNITAIRE (numérique).
+export interface ResolvedCols {
+  address: number;
+  noteClient: number;
+  productName: number;
+  unitPrice: number;
+  quantity: number;
+  totalAmount: number;
+  status: number;
+  note: number;
+}
+
+// Le Sheet EasySell n'a PAS une disposition fixe : selon le Sheet et la
+// ligne, les colonnes optionnelles ADRESSE / NOTE CLIENT et STATUS / NOTE
+// sont présentes ou absentes, et une ligne décalée peut laisser un trou.
+// Se caler sur des index fixes était la cause d'un double bug en prod :
+// le PRIX TOTAL tombait dans `quantite` (total des quantités absurde) et
+// le STATUT était lu sur la mauvaise colonne (livraisons perdues).
 //
-// ATTENTION : seul le bloc adresse..total se décale. EasySell écrit le
-// STATUT et la NOTE dans des colonnes FIXES (11 et 12) ; sur une ligne
-// décalée, le total tombe en 9 et un TROU apparaît en 10, mais le statut
-// reste en 11. Décaler le statut le ferait lire sur la colonne vide (→ null
-// → livraison perdue, bug constaté). Donc statut/note sont ANCRÉS.
-function resolveCols(row: string[]) {
-  const shift = isNumericCell(cell(row, 7)) ? -1 : 0;
+// On n'utilise donc plus d'index fixes pour le bloc produit. Seul le
+// début est stable (date=0, N°=1, nom=2, tél=3). On localise ensuite le
+// BLOC NUMÉRIQUE prix/quantité : le NOM DU PRODUIT est la cellule TEXTE
+// juste avant le PRIX UNITAIRE ; PRIX/QUANTITÉ sont deux cellules
+// numériques consécutives ; le STATUT et la NOTE sont les cellules texte
+// après le TOTAL (un éventuel trou laissé par une colonne décalée est
+// ignoré). `cell(row, -1)` renvoie "" : un index -1 = colonne absente.
+export function resolveCols(row: string[]): ResolvedCols | null {
+  // PRIX UNITAIRE = 1re position p (>=5, donc p-1>=4, jamais le tél en 3)
+  // telle que cell(p) ET cell(p+1) (=QUANTITÉ) soient numériques et
+  // cell(p-1) (=PRODUIT) un texte non vide non numérique.
+  let p = -1;
+  for (let i = 5; i < row.length - 1; i++) {
+    const prev = cell(row, i - 1);
+    if (
+      prev !== "" &&
+      !isNumericCell(prev) &&
+      isNumericCell(cell(row, i)) &&
+      isNumericCell(cell(row, i + 1))
+    ) {
+      p = i;
+      break;
+    }
+  }
+
+  // Aucun bloc numérique repérable : ligne inexploitable.
+  if (p === -1) return null;
+
+  const productName = p - 1;
+
+  // STATUT / NOTE = 1re et 2e cellules NON VIDES après le TOTAL (p+2),
+  // en sautant un éventuel trou. On ne lit jamais le total lui-même.
+  let status = -1;
+  let note = -1;
+  for (let i = p + 3; i < row.length; i++) {
+    if (cell(row, i) === "") continue;
+    if (status === -1) status = i;
+    else {
+      note = i;
+      break;
+    }
+  }
+
   return {
-    address: 5 + shift,
-    noteClient: 6 + shift,
-    productName: 7 + shift,
-    unitPrice: 8 + shift,
-    quantity: 9 + shift,
-    totalAmount: 10 + shift,
-    status: 11,
-    note: 12,
+    // ADRESSE / NOTE CLIENT = les (au plus deux) cellules entre le tél et
+    // le produit : index 4 puis 5 si le produit est assez à droite.
+    address: productName > 4 ? 4 : -1,
+    noteClient: productName > 5 ? 5 : -1,
+    productName,
+    unitPrice: p,
+    quantity: p + 1,
+    totalAmount: p + 2,
+    status,
+    note,
   };
 }
 
@@ -132,10 +180,11 @@ export class EasySellSyncService {
     for (const row of rows.slice(1)) {
       const orderId = cell(row, COL.orderId);
       const col = resolveCols(row);
-      const productName = cell(row, col.productName);
+      const productName = col ? cell(row, col.productName) : "";
 
-      // Lignes inexploitables : pas d'identifiant ou pas de produit.
-      if (!orderId || !productName) {
+      // Lignes inexploitables : pas d'identifiant, pas de bloc numérique
+      // repérable (col === null) ou pas de nom de produit.
+      if (!orderId || !col || !productName) {
         if (row.length > 0) skipped++;
         continue;
       }
