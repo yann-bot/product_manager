@@ -92,6 +92,22 @@ export interface SyncResult {
   skipped: number;
 }
 
+// PostgreSQL borne le nombre de paramètres d'une requête à 65535 (Int16
+// du protocole wire). Chaque ligne consomme 14 paramètres (id/created_at
+// sont `default`), soit ~4681 lignes max par INSERT. On découpe donc le
+// lot en tranches très en dessous de cette limite : sans découpage, le
+// cron casse dès que le Sheet dépasse ~4681 commandes (bug constaté en
+// prod). 1000 lignes/tranche = 14000 paramètres, large marge de sécurité.
+const UPSERT_CHUNK_SIZE = 1000;
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
+}
+
 export class EasySellSyncService {
   async sync(): Promise<SyncResult> {
     const spreadsheetId = await getSheetId();
@@ -148,26 +164,34 @@ export class EasySellSyncService {
       // UPSERT : insère les nouvelles commandes, réactualise les
       // existantes depuis le Sheet (statut, client, prix…). createdAt
       // n'est pas touché ; syncedAt repasse à "maintenant".
-      await db
-        .insert(easysellOrders)
-        .values(toUpsert)
-        .onConflictDoUpdate({
-          target: [easysellOrders.sheetId, easysellOrders.externalOrderId],
-          set: {
-            dateHeure: sql`excluded.date_heure`,
-            nomComplet: sql`excluded.nom_complet`,
-            telephone: sql`excluded.telephone`,
-            adresse: sql`excluded.adresse`,
-            noteClient: sql`excluded.note_client`,
-            nomProduit: sql`excluded.nom_produit`,
-            prixUnitaire: sql`excluded.prix_unitaire`,
-            quantite: sql`excluded.quantite`,
-            prixTotal: sql`excluded.prix_total`,
-            status: sql`excluded.status`,
-            note: sql`excluded.note`,
-            syncedAt: sql`excluded.synced_at`,
-          },
-        });
+      //
+      // Découpage en tranches (voir UPSERT_CHUNK_SIZE) pour ne jamais
+      // dépasser la limite de 65535 paramètres de Postgres. Le tout dans
+      // une transaction : l'upsert reste atomique (tout ou rien).
+      await db.transaction(async (tx) => {
+        for (const batch of chunk(toUpsert, UPSERT_CHUNK_SIZE)) {
+          await tx
+            .insert(easysellOrders)
+            .values(batch)
+            .onConflictDoUpdate({
+              target: [easysellOrders.sheetId, easysellOrders.externalOrderId],
+              set: {
+                dateHeure: sql`excluded.date_heure`,
+                nomComplet: sql`excluded.nom_complet`,
+                telephone: sql`excluded.telephone`,
+                adresse: sql`excluded.adresse`,
+                noteClient: sql`excluded.note_client`,
+                nomProduit: sql`excluded.nom_produit`,
+                prixUnitaire: sql`excluded.prix_unitaire`,
+                quantite: sql`excluded.quantite`,
+                prixTotal: sql`excluded.prix_total`,
+                status: sql`excluded.status`,
+                note: sql`excluded.note`,
+                syncedAt: sql`excluded.synced_at`,
+              },
+            });
+        }
+      });
     }
 
     return { upserted: toUpsert.length, skipped };
