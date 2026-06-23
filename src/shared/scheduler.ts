@@ -70,7 +70,8 @@ export function startCrons(): void {
       const s = await sync.sync();
       const i = await importSales.import();
       return (
-        `sync upserted=${s.upserted} skipped=${s.skipped} | ` +
+        `sync sheets=${s.sheetsSynced}ok/${s.sheetsFailed}ko ` +
+        `upserted=${s.upserted} skipped=${s.skipped} | ` +
         `import imported=${i.imported} (reconciled=${i.reconciled}, pending=${i.pending}) ` +
         `skippedExisting=${i.skippedExisting} skippedNotDelivered=${i.skippedNotDelivered}`
       );

@@ -5,16 +5,17 @@ import { renderPage } from "./view";
 import { SettingsPage } from "./views/SettingsPage";
 import {
   extractSheetId,
-  setSheet,
-  getSheetId,
-  getSheetUrl,
-  getSheetNames,
+  addSheet,
+  setSheetEnabled,
+  removeSheet,
+  listSheets,
 } from "./settings";
 
 //
-// Configuration de la source Google Sheet depuis l'interface.
-// On colle le lien du Sheet ; on en extrait l'ID, on vérifie que le
-// compte de service y a bien accès (Sheet partagé), puis on persiste.
+// Configuration des sources Google Sheet depuis l'interface.
+// On colle un ou plusieurs liens (un par ligne) ; on en extrait l'ID, on
+// vérifie que le compte de service y a bien accès (Sheet partagé), puis on
+// persiste. Chaque Sheet peut ensuite être activé / désactivé / retiré.
 //
 
 const SettingsRouter: Router = Router();
@@ -27,28 +28,29 @@ const back = (base: string, params: Record<string, string>): string =>
     .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
     .join("&");
 
-/** Interprète ?sheet=ok|err (+title|msg) en bannière de statut. */
+/** Interprète ?sheet=ok|err (+msg) en bannière de statut. */
 export function parseSheetStatus(
   query: Request["query"],
 ): { kind: "ok" | "err"; message: string } | null {
+  const msg = typeof query.msg === "string" ? query.msg : null;
   if (query.sheet === "ok") {
-    const title = typeof query.title === "string" ? query.title : "Sheet";
-    return { kind: "ok", message: `Source connectée : « ${title} ».` };
+    return { kind: "ok", message: msg ?? "Opération effectuée." };
   }
   if (query.sheet === "err") {
-    const msg = typeof query.msg === "string" ? query.msg : "Erreur inconnue.";
-    return { kind: "err", message: msg };
+    return { kind: "err", message: msg ?? "Erreur inconnue." };
   }
   return null;
 }
 
+/** Page sur laquelle revenir après une action (dashboard par défaut). */
+function redirectTarget(body: unknown): string {
+  const r = (body as { redirect?: unknown })?.redirect;
+  return typeof r === "string" && r ? r : "/";
+}
+
 // Page de configuration de l'application.
 SettingsRouter.get("/settings/view", async (req, res) => {
-  const [sheetId, sheetUrl, sheetNames] = await Promise.all([
-    getSheetId(),
-    getSheetUrl(),
-    getSheetNames(),
-  ]);
+  const configuredSheets = await listSheets();
 
   renderPage(res, {
     title: "Paramètres",
@@ -56,9 +58,7 @@ SettingsRouter.get("/settings/view", async (req, res) => {
     active: "settings",
     body: (
       <SettingsPage
-        sheetId={sheetId}
-        sheetUrl={sheetUrl}
-        sheetNames={sheetNames}
+        sheets={configuredSheets}
         serviceAccount={process.env.GOOGLE_CLIENT_EMAIL ?? null}
         cronEnabled={process.env.DISABLE_CRONS !== "true"}
         port={Number(process.env.PORT ?? 3000)}
@@ -68,45 +68,104 @@ SettingsRouter.get("/settings/view", async (req, res) => {
   });
 });
 
+// Ajoute un ou plusieurs Sheets (un lien par ligne). Chaque lien est
+// vérifié individuellement ; on rapporte le total ajouté et les échecs.
 SettingsRouter.post("/settings/google-sheet", async (req, res) => {
-  const url = typeof req.body?.url === "string" ? req.body.url : "";
-  // Page sur laquelle revenir (dashboard par défaut, ou la page Paramètres).
-  const redirectTo =
-    typeof req.body?.redirect === "string" && req.body.redirect
-      ? req.body.redirect
-      : "/";
-  const id = extractSheetId(url);
+  const redirectTo = redirectTarget(req.body);
+  // Compat : champ `links` (textarea multi-lignes) ou ancien champ `url`.
+  const raw =
+    typeof req.body?.links === "string"
+      ? req.body.links
+      : typeof req.body?.url === "string"
+        ? req.body.url
+        : "";
 
-  if (!id) {
+  const lines = raw
+    .split(/[\r\n]+/)
+    .map((l: string) => l.trim())
+    .filter((l: string) => l.length > 0);
+
+  if (lines.length === 0) {
     res.redirect(
-      back(redirectTo, {
-        sheet: "err",
-        msg: "Lien invalide : impossible d'en extraire l'ID du Sheet.",
-      }),
+      back(redirectTo, { sheet: "err", msg: "Aucun lien fourni." }),
     );
     return;
   }
 
-  try {
-    // Vérifie l'accès : échoue si le Sheet n'est pas partagé avec le
-    // compte de service (403) ou n'existe pas (404).
-    const meta = await sheets.spreadsheets.get({ spreadsheetId: id });
-    const title = meta.data.properties?.title ?? id;
+  const added: string[] = [];
+  const errors: string[] = [];
+  const account = process.env.GOOGLE_CLIENT_EMAIL ?? "le compte de service";
 
-    await setSheet(id, url.trim(), title);
-    res.redirect(back(redirectTo, { sheet: "ok", title }));
-  } catch (err: unknown) {
-    const e = err as { code?: number; response?: { status?: number }; message?: string };
-    const status = e.code ?? e.response?.status;
-    const account = process.env.GOOGLE_CLIENT_EMAIL ?? "le compte de service";
-    const msg =
-      status === 403
-        ? `Accès refusé. Partage d'abord le Sheet (lecture) avec ${account}, puis réessaie.`
-        : status === 404
-          ? "Sheet introuvable — vérifie le lien."
-          : `Impossible d'accéder au Sheet : ${e.message ?? "erreur inconnue"}.`;
-    res.redirect(back(redirectTo, { sheet: "err", msg }));
+  for (const line of lines) {
+    const id = extractSheetId(line);
+    if (!id) {
+      errors.push(`« ${line} » : lien invalide.`);
+      continue;
+    }
+    try {
+      // Vérifie l'accès : échoue si le Sheet n'est pas partagé (403) ou
+      // n'existe pas (404).
+      const meta = await sheets.spreadsheets.get({ spreadsheetId: id });
+      const title = meta.data.properties?.title ?? id;
+      await addSheet(id, line, title);
+      added.push(title);
+    } catch (err: unknown) {
+      const e = err as { code?: number; response?: { status?: number }; message?: string };
+      const status = e.code ?? e.response?.status;
+      errors.push(
+        status === 403
+          ? `« ${line} » : accès refusé (partagez-le avec ${account}).`
+          : status === 404
+            ? `« ${line} » : Sheet introuvable.`
+            : `« ${line} » : ${e.message ?? "erreur inconnue"}.`,
+      );
+    }
   }
+
+  const parts: string[] = [];
+  if (added.length) parts.push(`Connecté(s) : ${added.join(", ")}.`);
+  if (errors.length) parts.push(errors.join(" "));
+
+  res.redirect(
+    back(redirectTo, {
+      sheet: errors.length && !added.length ? "err" : "ok",
+      msg: parts.join(" ") || "Aucun changement.",
+    }),
+  );
+});
+
+// Active ou désactive un Sheet existant.
+SettingsRouter.post("/settings/sheets/toggle", async (req, res) => {
+  const redirectTo = redirectTarget(req.body);
+  const id = typeof req.body?.id === "string" ? req.body.id : "";
+  const enabled = req.body?.enabled === "1";
+
+  if (!id) {
+    res.redirect(back(redirectTo, { sheet: "err", msg: "Sheet inconnu." }));
+    return;
+  }
+
+  await setSheetEnabled(id, enabled);
+  res.redirect(
+    back(redirectTo, {
+      sheet: "ok",
+      msg: enabled ? "Sheet activé." : "Sheet désactivé.",
+    }),
+  );
+});
+
+// Retire un Sheet de la configuration (les commandes déjà importées restent).
+SettingsRouter.post("/settings/sheets/remove", async (req, res) => {
+  const redirectTo = redirectTarget(req.body);
+  const id = typeof req.body?.id === "string" ? req.body.id : "";
+
+  if (!id) {
+    res.redirect(back(redirectTo, { sheet: "err", msg: "Sheet inconnu." }));
+    return;
+  }
+
+  await removeSheet(id);
+  res.redirect(back(redirectTo, { sheet: "ok", msg: "Sheet retiré." }));
 });
 
 export default SettingsRouter;

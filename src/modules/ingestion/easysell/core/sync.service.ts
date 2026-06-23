@@ -2,15 +2,16 @@ import { sql } from "drizzle-orm";
 import { sheets } from "../../../../lib/google-sheet";
 import { db } from "../../../../db/client";
 import { easysellOrders } from "../../../../db/schemas/easysell-order.schema";
-import { getSheetId } from "../../../../shared/settings";
+import { getEnabledSheetIds } from "../../../../shared/settings";
 
 //
 // ======================================================
-// CRON 1 : Google Sheet -> easysell_orders
+// CRON 1 : Google Sheet(s) -> easysell_orders
 // ======================================================
-// Lit le Google Sheet (EasySell) et insère les lignes brutes dans la
-// table de staging `easysell_orders` (aucune logique métier ici, aucun
-// lien avec un produit/vente interne).
+// Lit chaque Google Sheet EasySell ACTIVÉ et insère les lignes brutes
+// dans la table de staging `easysell_orders` (aucune logique métier ici,
+// aucun lien avec un produit/vente interne). Plusieurs Sheets peuvent être
+// synchronisés à la fois ; un Sheet en échec n'interrompt pas les autres.
 //
 // On garde la donnée telle qu'elle arrive : pas de valeur par défaut
 // imposée (quantité/prix/statut restent nuls si absents ou invalides).
@@ -134,10 +135,14 @@ function quantity(raw: string): number | null {
 }
 
 export interface SyncResult {
-  /** Lignes insérées ou mises à jour (upsert). */
+  /** Lignes insérées ou mises à jour (upsert), tous Sheets confondus. */
   upserted: number;
-  /** Lignes ignorées (inexploitables ou bruit). */
+  /** Lignes ignorées (inexploitables ou bruit), tous Sheets confondus. */
   skipped: number;
+  /** Nombre de Sheets synchronisés avec succès. */
+  sheetsSynced: number;
+  /** Nombre de Sheets en échec (accès révoqué, etc.) — n'interrompt pas. */
+  sheetsFailed: number;
 }
 
 // PostgreSQL borne le nombre de paramètres d'une requête à 65535 (Int16
@@ -157,14 +162,45 @@ function chunk<T>(items: T[], size: number): T[][] {
 }
 
 export class EasySellSyncService {
+  /**
+   * Synchronise TOUS les Sheets activés (multi-Sheet). Chaque Sheet est
+   * synchronisé indépendamment : un Sheet en échec (accès révoqué, Sheet
+   * supprimé…) est journalisé et n'interrompt pas les autres.
+   */
   async sync(): Promise<SyncResult> {
-    const spreadsheetId = await getSheetId();
-    if (!spreadsheetId) {
+    const spreadsheetIds = await getEnabledSheetIds();
+    if (spreadsheetIds.length === 0) {
       throw new Error(
-        "Aucun Google Sheet configuré (via l'interface ou GOOGLE_SHEET_ID).",
+        "Aucun Google Sheet activé (via l'interface ou GOOGLE_SHEET_ID).",
       );
     }
 
+    const result: SyncResult = {
+      upserted: 0,
+      skipped: 0,
+      sheetsSynced: 0,
+      sheetsFailed: 0,
+    };
+
+    for (const spreadsheetId of spreadsheetIds) {
+      try {
+        const { upserted, skipped } = await this.syncOne(spreadsheetId);
+        result.upserted += upserted;
+        result.skipped += skipped;
+        result.sheetsSynced++;
+      } catch (err) {
+        result.sheetsFailed++;
+        console.error(`[SYNC ERROR] Sheet ${spreadsheetId} ignoré :`, err);
+      }
+    }
+
+    return result;
+  }
+
+  /** Synchronise un seul Sheet vers `easysell_orders` (logique d'origine). */
+  private async syncOne(
+    spreadsheetId: string,
+  ): Promise<{ upserted: number; skipped: number }> {
     const { data } = await sheets.spreadsheets.values.get({
       spreadsheetId,
       range: "A:Z",
