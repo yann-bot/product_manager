@@ -1,41 +1,36 @@
 //
 // Page « Paramètres » (/settings/view) — centralise la configuration de
-// l'application. Aujourd'hui le seul réglage réellement éditable est la
-// source Google Sheet (clé/valeur en base via `app_settings`) ; le reste
-// est de l'information système en lecture seule (variables d'environnement).
+// l'application. Le réglage éditable est l'ensemble des sources Google
+// Sheet (multi-Sheet) : on peut en ajouter plusieurs à la fois, puis
+// activer / désactiver / retirer chacune indépendamment. Le reste est de
+// l'information système en lecture seule (variables d'environnement).
 // Rendu 100 % serveur, sans JS client, dans le thème clair partagé.
 //
 
 import type { ReactNode } from "react";
-import { shortSheetId } from "../settings";
+import { shortSheetId, type SheetConfig } from "../settings";
 
 interface SettingsPageProps {
-  /** Sheet actif (id) et son lien d'origine, si configurés. */
-  sheetId: string | null;
-  sheetUrl: string | null;
-  /** Tous les Sheets connus : id -> titre lisible. */
-  sheetNames: Record<string, string>;
+  /** Tous les Sheets configurés et leur état d'activation. */
+  sheets: SheetConfig[];
   /** Compte de service Google (pour le partage du Sheet). */
   serviceAccount: string | null;
   /** Cron de synchronisation actif ? (DISABLE_CRONS != "true") */
   cronEnabled: boolean;
   /** Port d'écoute du serveur. */
   port: number;
-  /** Bannière de retour après une tentative de connexion. */
+  /** Bannière de retour après une action. */
   status: { kind: "ok" | "err"; message: string } | null;
 }
 
 export function SettingsPage({
-  sheetId,
-  sheetUrl,
-  sheetNames,
+  sheets,
   serviceAccount,
   cronEnabled,
   port,
   status,
 }: SettingsPageProps) {
-  const connected = Boolean(sheetId);
-  const sheets = Object.entries(sheetNames);
+  const enabledCount = sheets.filter((s) => s.enabled).length;
 
   return (
     <div className="wrap">
@@ -45,57 +40,53 @@ export function SettingsPage({
         </div>
       )}
 
-      {/* ---- Source Google Sheet (seul réglage éditable) ---- */}
+      {/* ---- Ajout de sources Google Sheet ---- */}
       <section className="form" style={{ maxWidth: 640 }}>
-        <h2 style={{ margin: "0 0 4px", fontSize: 17 }}>Source Google Sheet</h2>
+        <h2 style={{ margin: "0 0 4px", fontSize: 17 }}>Sources Google Sheet</h2>
         <p className="sub" style={{ margin: "0 0 16px" }}>
-          Le Sheet EasySell synchronisé chaque minute par le cron d'ingestion.
+          Les Sheets EasySell synchronisés chaque minute par le cron
+          d'ingestion. Vous pouvez en ajouter plusieurs (un lien par ligne)
+          puis activer ou désactiver chacun à volonté.
         </p>
 
         <div style={{ marginBottom: 16 }}>
-          <span className={connected ? "tag tag-active" : "tag"}>
-            {connected ? "● Source connectée" : "○ Non configurée"}
+          <span className={enabledCount > 0 ? "tag tag-active" : "tag"}>
+            {enabledCount > 0
+              ? `● ${enabledCount} source(s) active(s)`
+              : "○ Aucune source active"}
           </span>
         </div>
-
-        {connected && sheetId && (
-          <div className="field">
-            <label>Sheet actif</label>
-            <div>
-              <span className="ref">{sheetId}</span>
-            </div>
-          </div>
-        )}
 
         <form method="post" action="/settings/google-sheet">
           <input type="hidden" name="redirect" value="/settings/view" />
           <div className="field">
-            <label htmlFor="url">Lien du Google Sheet</label>
-            <input
-              id="url"
-              name="url"
-              type="url"
-              defaultValue={sheetUrl ?? ""}
-              placeholder="https://docs.google.com/spreadsheets/d/…/edit"
+            <label htmlFor="links">Lien(s) du / des Google Sheet(s)</label>
+            <textarea
+              id="links"
+              name="links"
+              rows={3}
+              placeholder={
+                "https://docs.google.com/spreadsheets/d/…/edit\nhttps://docs.google.com/spreadsheets/d/…/edit"
+              }
               required
             />
           </div>
           <div className="actions">
             <button type="submit" className="btn btn-primary">
-              {connected ? "Mettre à jour la source" : "Connecter le Sheet"}
+              Ajouter le(s) Sheet(s)
             </button>
           </div>
         </form>
 
         {serviceAccount && (
           <p className="sub" style={{ marginTop: 16, marginBottom: 0 }}>
-            Partagez d'abord le Sheet (accès lecture) avec{" "}
+            Partagez d'abord chaque Sheet (accès lecture) avec{" "}
             <span className="ref">{serviceAccount}</span>.
           </p>
         )}
       </section>
 
-      {/* ---- Sheets configurés (historique multi-source) ---- */}
+      {/* ---- Sheets configurés (activer / désactiver / retirer) ---- */}
       {sheets.length > 0 && (
         <section style={{ marginTop: 24 }}>
           <div className="section-h">Sheets configurés</div>
@@ -105,21 +96,59 @@ export function SettingsPage({
                 <th>Titre</th>
                 <th>Identifiant</th>
                 <th>État</th>
+                <th className="num">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {sheets.map(([id, name]) => (
-                <tr key={id}>
-                  <td className="strong">{name}</td>
-                  <td>
-                    <span className="ref">{shortSheetId(id)}</span>
+              {sheets.map((s) => (
+                <tr key={s.id}>
+                  <td className="strong">
+                    {s.url ? (
+                      <a href={s.url} target="_blank" rel="noreferrer">
+                        {s.title}
+                      </a>
+                    ) : (
+                      s.title
+                    )}
                   </td>
                   <td>
-                    {id === sheetId ? (
+                    <span className="ref">{shortSheetId(s.id)}</span>
+                  </td>
+                  <td>
+                    {s.enabled ? (
                       <span className="tag tag-active">actif</span>
                     ) : (
-                      <span className="tag">archive</span>
+                      <span className="tag">désactivé</span>
                     )}
+                  </td>
+                  <td className="num">
+                    <div
+                      style={{
+                        display: "inline-flex",
+                        gap: 8,
+                        justifyContent: "flex-end",
+                      }}
+                    >
+                      <form method="post" action="/settings/sheets/toggle">
+                        <input type="hidden" name="redirect" value="/settings/view" />
+                        <input type="hidden" name="id" value={s.id} />
+                        <input
+                          type="hidden"
+                          name="enabled"
+                          value={s.enabled ? "0" : "1"}
+                        />
+                        <button type="submit" className="btn">
+                          {s.enabled ? "Désactiver" : "Activer"}
+                        </button>
+                      </form>
+                      <form method="post" action="/settings/sheets/remove">
+                        <input type="hidden" name="redirect" value="/settings/view" />
+                        <input type="hidden" name="id" value={s.id} />
+                        <button type="submit" className="btn btn-danger">
+                          Retirer
+                        </button>
+                      </form>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -144,7 +173,9 @@ export function SettingsPage({
               {cronEnabled ? "cron actif (chaque minute)" : "cron désactivé"}
             </span>
           </Row>
-          <Row label="Sheets configurés">{sheets.length}</Row>
+          <Row label="Sheets configurés">
+            {sheets.length} ({enabledCount} actif/s)
+          </Row>
           <Row label="Port d'écoute">{port}</Row>
         </div>
       </section>

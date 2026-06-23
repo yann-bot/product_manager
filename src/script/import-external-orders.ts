@@ -9,7 +9,8 @@ import { EasySellSyncService } from "../modules/ingestion/easysell/core/sync.ser
 async function main() {
   const r = await new EasySellSyncService().sync();
   console.log(
-    `${r.upserted} commande(s) synchronisée(s) (insérées ou mises à jour) dans easysell_orders, ${r.skipped} ligne(s) ignorée(s).`,
+    `${r.upserted} commande(s) synchronisée(s) (insérées ou mises à jour) dans easysell_orders, ` +
+      `${r.skipped} ligne(s) ignorée(s) — ${r.sheetsSynced} Sheet(s) OK, ${r.sheetsFailed} en échec.`,
   );
 }
 
